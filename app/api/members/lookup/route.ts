@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAdminClient } from '@/lib/supabase'
+import { sql } from '@/lib/db'
 
-// POST /api/members/lookup
-// { phone, company_id, name? }
 export async function POST(req: NextRequest) {
   const { phone, company_id, name } = await req.json()
   if (!phone?.trim() || !company_id?.trim()) {
@@ -10,48 +8,35 @@ export async function POST(req: NextRequest) {
   }
 
   const normalised = phone.trim().replace(/\s+/g, '')
-  const supabase   = getAdminClient()
+  const db = sql()
 
   // Find or create member
   let member: any
-  const { data: existing } = await supabase
-    .from('members')
-    .select('*')
-    .eq('phone', normalised)
-    .single()
-
-  if (existing) {
-    member = existing
+  const existing = await db`SELECT * FROM members WHERE phone = ${normalised} LIMIT 1`
+  if (existing[0]) {
+    member = existing[0]
   } else {
-    const { data: created, error } = await supabase
-      .from('members')
-      .insert({ phone: normalised, name: name?.trim() || null })
-      .select()
-      .single()
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    member = created
+    const created = await db`
+      INSERT INTO members (phone, name) VALUES (${normalised}, ${name?.trim() || null})
+      RETURNING *
+    `
+    member = created[0]
   }
 
-  // Find or create membership for this company
+  // Find or create membership
   let membership: any
   let isNew = false
-  const { data: existingMs } = await supabase
-    .from('memberships')
-    .select('*')
-    .eq('member_id', member.id)
-    .eq('company_id', company_id)
-    .single()
-
-  if (existingMs) {
-    membership = existingMs
+  const existingMs = await db`
+    SELECT * FROM memberships WHERE member_id = ${member.id} AND company_id = ${company_id} LIMIT 1
+  `
+  if (existingMs[0]) {
+    membership = existingMs[0]
   } else {
-    const { data: created, error } = await supabase
-      .from('memberships')
-      .insert({ member_id: member.id, company_id })
-      .select()
-      .single()
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    membership = created
+    const created = await db`
+      INSERT INTO memberships (member_id, company_id) VALUES (${member.id}, ${company_id})
+      RETURNING *
+    `
+    membership = created[0]
     isNew = true
   }
 

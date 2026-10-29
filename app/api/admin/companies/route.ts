@@ -1,22 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAdminClient } from '@/lib/supabase'
+import { sql } from '@/lib/db'
 import { validateAdmin, unauthorized } from '@/lib/adminAuth'
-
-// Super admin only
 
 export async function GET(req: NextRequest) {
   const auth = await validateAdmin(req)
   if (!auth || !auth.isSuperAdmin) return unauthorized()
 
-  const supabase = getAdminClient()
-  const { data, error } = await supabase
-    .from('companies')
-    .select('id, name, email, created_at')
-    .neq('id', 'super')
-    .order('created_at', { ascending: false })
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ companies: data || [] })
+  const db = sql()
+  const rows = await db`
+    SELECT id, name, email, created_at FROM companies
+    WHERE id != 'super'
+    ORDER BY created_at DESC
+  `
+  return NextResponse.json({ companies: rows })
 }
 
 export async function POST(req: NextRequest) {
@@ -28,15 +24,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'id, name, password required' }, { status: 400 })
   }
 
-  const supabase = getAdminClient()
-  const { error } = await supabase.from('companies').insert({
-    id: id.trim().toLowerCase().replace(/\s+/g, '-'),
-    name: name.trim(),
-    password: password.trim(),
-    email: email?.trim() || null,
-  })
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ success: true })
+  const companyId = id.trim().toLowerCase().replace(/\s+/g, '-')
+  const db = sql()
+  try {
+    await db`
+      INSERT INTO companies (id, name, password, email)
+      VALUES (${companyId}, ${name.trim()}, ${password.trim()}, ${email?.trim() || null})
+    `
+    return NextResponse.json({ success: true })
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 })
+  }
 }
 
 export async function DELETE(req: NextRequest) {
@@ -46,8 +44,7 @@ export async function DELETE(req: NextRequest) {
   const id = req.nextUrl.searchParams.get('id')
   if (!id || id === 'super') return NextResponse.json({ error: 'Cannot delete super' }, { status: 400 })
 
-  const supabase = getAdminClient()
-  const { error } = await supabase.from('companies').delete().eq('id', id)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  const db = sql()
+  await db`DELETE FROM companies WHERE id = ${id}`
   return NextResponse.json({ success: true })
 }

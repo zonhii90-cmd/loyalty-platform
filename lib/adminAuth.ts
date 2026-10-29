@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAdminClient } from './supabase'
+import { sql } from './db'
 
 export interface AdminAuth {
   companyId: string
@@ -9,17 +9,14 @@ export interface AdminAuth {
 export async function validateAdmin(req: NextRequest): Promise<AdminAuth | null> {
   const token     = req.headers.get('x-admin-token') || ''
   const companyId = req.headers.get('x-company-id')  || ''
-
   if (!token || !companyId) return null
 
-  const supabase = getAdminClient()
-  const { data } = await supabase
-    .from('companies')
-    .select('id, password')
-    .eq('id', companyId)
-    .single()
-
-  if (!data || data.password !== token) return null
+  const db = sql()
+  const rows = await db`
+    SELECT id, password FROM companies WHERE id = ${companyId} LIMIT 1
+  `
+  const company = rows[0]
+  if (!company || company.password !== token) return null
   return { companyId, isSuperAdmin: companyId === 'super' }
 }
 

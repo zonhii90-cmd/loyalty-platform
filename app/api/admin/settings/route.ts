@@ -1,48 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAdminClient } from '@/lib/supabase'
+import { sql } from '@/lib/db'
 import { validateAdmin, unauthorized } from '@/lib/adminAuth'
 
 export async function GET(req: NextRequest) {
   const auth = await validateAdmin(req)
   if (!auth) return unauthorized()
-  const { companyId } = auth
 
-  const supabase = getAdminClient()
-  const { data } = await supabase
-    .from('settings')
-    .select('data')
-    .eq('company_id', companyId)
-    .single()
-
-  return NextResponse.json({ settings: (data?.data as object) || {} })
+  const db = sql()
+  const rows = await db`
+    SELECT data FROM settings WHERE company_id = ${auth.companyId} LIMIT 1
+  `
+  return NextResponse.json({ settings: rows[0]?.data || {} })
 }
 
 export async function PUT(req: NextRequest) {
   const auth = await validateAdmin(req)
   if (!auth) return unauthorized()
-  const { companyId } = auth
 
   const body = await req.json()
-  const supabase = getAdminClient()
+  const db = sql()
 
-  const { data: existing } = await supabase
-    .from('settings')
-    .select('id')
-    .eq('company_id', companyId)
-    .single()
-
-  if (existing) {
-    const { error } = await supabase
-      .from('settings')
-      .update({ data: body, updated_at: new Date().toISOString() })
-      .eq('company_id', companyId)
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  } else {
-    const { error } = await supabase
-      .from('settings')
-      .insert({ id: companyId, company_id: companyId, data: body, updated_at: new Date().toISOString() })
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  }
-
+  await db`
+    INSERT INTO settings (id, company_id, data, updated_at)
+    VALUES (${auth.companyId}, ${auth.companyId}, ${JSON.stringify(body)}, now())
+    ON CONFLICT (id) DO UPDATE SET data = ${JSON.stringify(body)}, updated_at = now()
+  `
   return NextResponse.json({ success: true })
 }

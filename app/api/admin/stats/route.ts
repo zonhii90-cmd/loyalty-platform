@@ -1,61 +1,47 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAdminClient } from '@/lib/supabase'
+import { sql } from '@/lib/db'
 import { validateAdmin, unauthorized } from '@/lib/adminAuth'
 
-// GET /api/admin/stats
 export async function GET(req: NextRequest) {
   const auth = await validateAdmin(req)
   if (!auth) return unauthorized()
-  const { companyId } = auth
 
-  const supabase = getAdminClient()
+  const db  = sql()
+  const cid = auth.companyId
 
-  // Total members
-  const { count: totalMembers } = await supabase
-    .from('memberships')
-    .select('*', { count: 'exact', head: true })
-    .eq('company_id', companyId)
-
-  // Total points issued (earn entries)
-  const { data: earnData } = await supabase
-    .from('points_ledger')
-    .select('amount, memberships!inner(company_id)')
-    .eq('memberships.company_id', companyId)
-    .eq('type', 'earn')
-
-  const totalPointsIssued = (earnData || []).reduce((sum: number, r: any) => sum + r.amount, 0)
-
-  // Total points balance (sum of memberships)
-  const { data: balanceData } = await supabase
-    .from('memberships')
-    .select('points')
-    .eq('company_id', companyId)
-
-  const totalPointsBalance = (balanceData || []).reduce((sum: number, r: any) => sum + r.points, 0)
-
-  // New members this month
-  const monthStart = new Date()
-  monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0)
-
-  const { count: newThisMonth } = await supabase
-    .from('memberships')
-    .select('*', { count: 'exact', head: true })
-    .eq('company_id', companyId)
-    .gte('joined_at', monthStart.toISOString())
-
-  // Recent activity (last 10 ledger entries)
-  const { data: recentActivity } = await supabase
-    .from('points_ledger')
-    .select('id, type, amount, source, note, created_at, memberships!inner(company_id, member:member_id(phone, name))')
-    .eq('memberships.company_id', companyId)
-    .order('created_at', { ascending: false })
-    .limit(10)
+  const [totalRow] = await db`
+    SELECT COUNT(*) AS total FROM memberships WHERE company_id = ${cid}
+  `
+  const [issuedRow] = await db`
+    SELECT COALESCE(SUM(pl.amount), 0) AS total
+    FROM points_ledger pl
+    JOIN memberships ms ON ms.id = pl.membership_id
+    WHERE ms.company_id = ${cid} AND pl.type = 'earn'
+  `
+  const [balanceRow] = await db`
+    SELECT COALESCE(SUM(points), 0) AS total FROM memberships WHERE company_id = ${cid}
+  `
+  const [monthRow] = await db`
+    SELECT COUNT(*) AS total FROM memberships
+    WHERE company_id = ${cid}
+    AND joined_at >= date_trunc('month', now())
+  `
+  const recentActivity = await db`
+    SELECT pl.id, pl.type, pl.amount, pl.source, pl.note, pl.created_at,
+           m.phone, m.name
+    FROM points_ledger pl
+    JOIN memberships ms ON ms.id = pl.membership_id
+    JOIN members m ON m.id = ms.member_id
+    WHERE ms.company_id = ${cid}
+    ORDER BY pl.created_at DESC
+    LIMIT 10
+  `
 
   return NextResponse.json({
-    totalMembers:      totalMembers || 0,
-    totalPointsIssued,
-    totalPointsBalance,
-    newThisMonth:      newThisMonth || 0,
-    recentActivity:    recentActivity || [],
+    totalMembers:      parseInt(totalRow.total,   10),
+    totalPointsIssued: parseInt(issuedRow.total,  10),
+    totalPointsBalance:parseInt(balanceRow.total, 10),
+    newThisMonth:      parseInt(monthRow.total,   10),
+    recentActivity,
   })
 }

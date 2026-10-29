@@ -1,18 +1,17 @@
 -- ============================================================
--- Loyalty Platform — Full Schema
--- Run this in your NEW Supabase project's SQL Editor
+-- Loyalty Platform — Neon Schema
 -- ============================================================
 
--- 1. Companies (multi-tenant, each merchant = one company)
+-- 1. Companies (multi-tenant)
 CREATE TABLE IF NOT EXISTS companies (
-  id           text PRIMARY KEY,         -- slug, e.g. "coffee-king"
+  id           text PRIMARY KEY,
   name         varchar(100) NOT NULL,
-  password     varchar(100) NOT NULL,    -- admin token (plain, same as FeedbackApp pattern)
+  password     varchar(100) NOT NULL,
   email        varchar(100),
   created_at   timestamptz DEFAULT now()
 );
 
--- 2. Members (cross-company identity, phone = primary key)
+-- 2. Members (cross-company identity)
 CREATE TABLE IF NOT EXISTS members (
   id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   phone        varchar(20) UNIQUE NOT NULL,
@@ -21,7 +20,7 @@ CREATE TABLE IF NOT EXISTS members (
   created_at   timestamptz DEFAULT now()
 );
 
--- 3. Memberships (member ↔ company relationship + per-company points balance)
+-- 3. Memberships (member ↔ company + per-company points)
 CREATE TABLE IF NOT EXISTS memberships (
   id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   member_id    uuid NOT NULL REFERENCES members(id) ON DELETE CASCADE,
@@ -32,7 +31,7 @@ CREATE TABLE IF NOT EXISTS memberships (
   UNIQUE(member_id, company_id)
 );
 
--- 4. Points Ledger (immutable — INSERT only, never UPDATE)
+-- 4. Points Ledger (immutable — INSERT only)
 CREATE TABLE IF NOT EXISTS points_ledger (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   membership_id uuid NOT NULL REFERENCES memberships(id) ON DELETE CASCADE,
@@ -44,7 +43,7 @@ CREATE TABLE IF NOT EXISTS points_ledger (
   created_at    timestamptz DEFAULT now()
 );
 
--- 5. Settings (per-company config: points rules, tier thresholds, branding)
+-- 5. Settings (per-company config)
 CREATE TABLE IF NOT EXISTS settings (
   id           text PRIMARY KEY REFERENCES companies(id) ON DELETE CASCADE,
   company_id   text NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
@@ -59,26 +58,6 @@ CREATE INDEX IF NOT EXISTS idx_memberships_company_id  ON memberships(company_id
 CREATE INDEX IF NOT EXISTS idx_ledger_membership_id    ON points_ledger(membership_id);
 CREATE INDEX IF NOT EXISTS idx_ledger_created_at       ON points_ledger(created_at DESC);
 
--- RLS
-ALTER TABLE companies    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE members      ENABLE ROW LEVEL SECURITY;
-ALTER TABLE memberships  ENABLE ROW LEVEL SECURITY;
-ALTER TABLE points_ledger ENABLE ROW LEVEL SECURITY;
-ALTER TABLE settings     ENABLE ROW LEVEL SECURITY;
-
--- Service role bypasses all (used by API routes with service key)
-CREATE POLICY "service_companies"   ON companies     USING (auth.role() = 'service_role');
-CREATE POLICY "service_members"     ON members       USING (auth.role() = 'service_role');
-CREATE POLICY "service_memberships" ON memberships   USING (auth.role() = 'service_role');
-CREATE POLICY "service_ledger"      ON points_ledger  USING (auth.role() = 'service_role');
-CREATE POLICY "service_settings"    ON settings      USING (auth.role() = 'service_role');
-
--- Anon can read/insert members (for customer portal)
-CREATE POLICY "anon_read_members"   ON members FOR SELECT USING (true);
-CREATE POLICY "anon_insert_members" ON members FOR INSERT WITH CHECK (true);
-
--- ============================================================
--- Seed a super admin company (change the password!)
--- ============================================================
+-- Seed super admin (change password after first deploy!)
 INSERT INTO companies (id, name, password) VALUES ('super', 'Super Admin', 'changeme-super')
   ON CONFLICT (id) DO NOTHING;
