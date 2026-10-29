@@ -1,5 +1,5 @@
 -- ============================================================
--- Perkly — Full Schema
+-- Loyalty Platform — Full Schema
 -- Run this in your NEW Supabase project's SQL Editor
 -- ============================================================
 

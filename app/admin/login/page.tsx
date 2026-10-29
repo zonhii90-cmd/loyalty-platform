@@ -32,8 +32,8 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="w-full max-w-sm bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
         <div className="text-center mb-8">
-          <p className="text-3xl font-bold text-violet-600 tracking-tight">Perkly</p>
-          <p className="text-sm text-gray-400 mt-1">Member loyalty platform</p>
+          <p className="text-3xl font-bold text-violet-600 tracking-tight">Loyalty Platform</p>
+          <p className="text-sm text-gray-400 mt-1">Member loyalty & rewards</p>
         </div>
 
         <div className="flex flex-col gap-3">

@@ -3,7 +3,7 @@ import './globals.css'
 import { AuthProvider } from '@/lib/auth-context'
 
 export const metadata: Metadata = {
-  title: 'Perkly',
+  title: 'Loyalty Platform',
   description: 'Member loyalty & rewards platform',
 }
 

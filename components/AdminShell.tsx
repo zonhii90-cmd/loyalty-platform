@@ -45,7 +45,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       {/* Desktop sidebar */}
       <aside className="hidden md:flex flex-col w-56 bg-white border-r border-gray-100 py-6 px-3 shrink-0">
         <div className="px-3 mb-8">
-          <div className="text-xl font-bold text-violet-600 tracking-tight">Perkly</div>
+          <div className="text-xl font-bold text-violet-600 tracking-tight">Loyalty Platform</div>
           <div className="text-xs text-gray-400 mt-0.5">{companyName || 'Admin'}</div>
         </div>
         <nav className="flex flex-col gap-1 flex-1">
@@ -70,7 +70,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile header */}
         <header className="md:hidden bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-20">
-          <div className="text-base font-bold text-violet-600">Perkly</div>
+          <div className="text-base font-bold text-violet-600">Loyalty Platform</div>
           <button onClick={logout} className="text-gray-400 p-1"><LogOut size={16} /></button>
         </header>
 

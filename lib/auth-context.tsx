@@ -21,7 +21,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('perkly_auth')
+      const saved = localStorage.getItem('lp_auth')
       if (saved) {
         const p = JSON.parse(saved)
         setToken(p.token); setCompanyId(p.companyId); setCompanyName(p.companyName || '')
@@ -31,12 +31,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   function login(cid: string, tok: string, name: string) {
     setToken(tok); setCompanyId(cid); setCompanyName(name)
-    try { localStorage.setItem('perkly_auth', JSON.stringify({ token: tok, companyId: cid, companyName: name })) } catch {}
+    try { localStorage.setItem('lp_auth', JSON.stringify({ token: tok, companyId: cid, companyName: name })) } catch {}
   }
 
   function logout() {
     setToken(''); setCompanyId(''); setCompanyName('')
-    try { localStorage.removeItem('perkly_auth') } catch {}
+    try { localStorage.removeItem('lp_auth') } catch {}
   }
 
   function authFetch(url: string, init: RequestInit = {}) {
