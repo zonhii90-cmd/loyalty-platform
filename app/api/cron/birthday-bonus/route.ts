@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { sql } from '@/lib/db'
 import { notify } from '@/lib/notify'
 import { authorizeCron } from '@/lib/cronAuth'
+import { addEarnPoints } from '@/lib/tierUtils'
 
 export async function GET(req: NextRequest) {
   if (!authorizeCron(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -37,16 +38,12 @@ export async function GET(req: NextRequest) {
     const pts = parseInt(settingsRow[0]?.data?.birthdayPoints ?? '0', 10)
     if (!pts) continue
 
-    await db`
-      INSERT INTO points_ledger (membership_id, type, amount, source, note)
-      VALUES (${row.membership_id}, 'earn', ${pts}, 'birthday', 'Happy Birthday bonus')
-    `
-    await db`
-      UPDATE memberships SET points = points + ${pts}, last_activity_at = now()
-      WHERE id = ${row.membership_id}
-    `
+    const { newBalance } = await addEarnPoints(
+      row.membership_id, row.company_id, pts,
+      'birthday', 'Happy Birthday bonus',
+    )
 
-    await notify(row.phone, row.company_id, 'points_earned', { points: pts, balance: (row.points as number) + pts })
+    await notify(row.phone, row.company_id, 'points_earned', { points: pts, balance: newBalance })
     awarded++
   }
 

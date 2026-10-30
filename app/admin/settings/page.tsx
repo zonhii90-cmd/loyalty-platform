@@ -209,6 +209,14 @@ export default function SettingsPage() {
                 placeholder="50"
                 className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-violet-300" />
             </div>
+            <div>
+              <label className="text-xs text-gray-400 mb-1.5 block">Points expiry <span className="text-gray-300">(days of inactivity before points expire, 0 = never)</span></label>
+              <input type="number" min="0"
+                value={settings.expiry_days ?? ''}
+                onChange={e => setSettings(s => ({ ...s, expiry_days: Number(e.target.value) }))}
+                placeholder="365"
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-violet-300" />
+            </div>
           </div>
         </div>
 

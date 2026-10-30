@@ -17,7 +17,7 @@ interface Voucher {
   expires_at: string|null; redeemed_at: string|null; created_at: string
 }
 interface PortalData {
-  member: { phone: string; name: string|null }
+  member: { phone: string; name: string|null; birthday: string|null }
   membership: { id: string; points: number; tier: string; joined_at: string; company_id: string }
   ledger: LedgerEntry[]
   stamp: StampProgress | null
@@ -51,6 +51,10 @@ export default function MemberPortalClient() {
   const [tab,     setTab]     = useState<Tab>('overview')
   const [redeeming, setRedeeming] = useState<string | null>(null)
   const [redeemMsg, setRedeemMsg] = useState('')
+  const [profileName, setProfileName] = useState('')
+  const [profileBday, setProfileBday] = useState('')
+  const [profileSaving, setProfileSaving] = useState(false)
+  const [profileMsg, setProfileMsg]       = useState('')
 
   async function load() {
     if (!phone || !companyId) { setErr('Invalid link'); setLoading(false); return }
@@ -80,6 +84,8 @@ export default function MemberPortalClient() {
       rewards:  rewardsData.rewards || [],
       vouchers: vouchersData.vouchers || [],
     })
+    setProfileName(d.member.name || '')
+    setProfileBday(d.member.birthday ? d.member.birthday.slice(0, 10) : '')
     setLoading(false)
   }
 
@@ -99,6 +105,20 @@ export default function MemberPortalClient() {
     setRedeemMsg(`Voucher ${resp.voucher.code} created! Show it to staff.`)
     await load()
     setTab('vouchers')
+  }
+
+  async function saveProfile() {
+    if (!data) return
+    setProfileSaving(true); setProfileMsg('')
+    const r = await fetch(`/api/members/${data.membership.id}/profile`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: profileName.trim() || undefined, birthday: profileBday || undefined }),
+    })
+    setProfileSaving(false)
+    if (!r.ok) { const e = await r.json(); setProfileMsg(e.error || 'Save failed'); return }
+    setProfileMsg('Profile saved!')
+    await load()
   }
 
   if (loading) return (
@@ -187,7 +207,7 @@ export default function MemberPortalClient() {
             )}
 
             {ledger.length > 0 && (
-              <div className="bg-white rounded-3xl shadow-sm p-4">
+              <div className="bg-white rounded-3xl shadow-sm p-4 mb-4">
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-xs font-medium text-gray-500">Recent Activity</p>
                   <button onClick={() => setTab('history')} className="text-xs text-violet-600">See all →</button>
@@ -207,6 +227,42 @@ export default function MemberPortalClient() {
                 </div>
               </div>
             )}
+
+            {/* Profile edit */}
+            <div className="bg-white rounded-3xl shadow-sm p-4">
+              <p className="text-xs font-medium text-gray-500 mb-3">My Profile</p>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">Name</label>
+                  <input
+                    value={profileName}
+                    onChange={e => setProfileName(e.target.value)}
+                    placeholder="Your name"
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-violet-300"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">Birthday <span className="text-violet-500">(unlock birthday bonus!)</span></label>
+                  <input
+                    type="date"
+                    value={profileBday}
+                    onChange={e => setProfileBday(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-violet-300"
+                  />
+                </div>
+                {profileMsg && (
+                  <p className={'text-xs text-center ' + (profileMsg.includes('saved') ? 'text-emerald-600' : 'text-red-500')}>
+                    {profileMsg}
+                  </p>
+                )}
+                <button
+                  onClick={saveProfile}
+                  disabled={profileSaving}
+                  className="w-full py-2.5 bg-violet-600 text-white rounded-xl text-sm font-medium hover:bg-violet-700 disabled:opacity-50 transition-colors">
+                  {profileSaving ? 'Saving…' : 'Save Profile'}
+                </button>
+              </div>
+            </div>
           </>
         )}
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sql } from '@/lib/db'
 import { notify } from '@/lib/notify'
+import { addEarnPoints } from '@/lib/tierUtils'
 
 export async function POST(req: NextRequest) {
   const { token, phone, name } = await req.json()
@@ -68,18 +69,10 @@ export async function POST(req: NextRequest) {
   const awardedPoints = Math.round(qt.points * multiplier)
   const campaignNote = campaignRows[0] ? `QR scan · ${campaignRows[0].name} (${multiplier}×)` : 'QR scan'
 
-  const newBalance = membership.points + awardedPoints
-
-  // Credit points + update last_activity_at
-  await db`
-    INSERT INTO points_ledger (membership_id, type, amount, source, note, staff_id)
-    VALUES (${membership.id}, 'earn', ${awardedPoints}, 'qr_scan', ${campaignNote}, ${qt.staff_id || null})
-  `
-  await db`
-    UPDATE memberships
-    SET points = ${newBalance}, last_activity_at = now()
-    WHERE id = ${membership.id}
-  `
+  const { newBalance } = await addEarnPoints(
+    membership.id, qt.company_id, awardedPoints,
+    'qr_scan', campaignNote, qt.staff_id || null,
+  )
 
   // Add stamp if company has active QR-mode stamp card
   let stampResult: { completed: boolean; count: number; goal: number; rewardText: string; voucherCode?: string } | null = null
