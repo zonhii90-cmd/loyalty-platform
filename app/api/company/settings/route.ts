@@ -13,5 +13,7 @@ export async function GET(req: NextRequest) {
   const data = rows[0].data || {}
   return NextResponse.json({
     pointsValue: data.pointsValue ? parseFloat(data.pointsValue) : null,
+    tierSilver:  data.tier_silver  ? parseInt(data.tier_silver)  : null,
+    tierGold:    data.tier_gold    ? parseInt(data.tier_gold)    : null,
   })
 }

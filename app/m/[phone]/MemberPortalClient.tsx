@@ -20,7 +20,7 @@ interface Voucher {
 }
 interface PortalData {
   member: { phone: string; name: string|null; birthday: string|null }
-  membership: { id: string; points: number; tier: string; joined_at: string; company_id: string }
+  membership: { id: string; points: number; lifetime_points: number; tier: string; joined_at: string; company_id: string }
   ledger: LedgerEntry[]
   stamp: StampProgress | null
   rewards: Reward[]
@@ -52,6 +52,8 @@ export default function MemberPortalClient() {
   const [err,         setErr]        = useState('')
   const [tab,         setTab]        = useState<Tab>('overview')
   const [pointsValue, setPointsValue]= useState<number | null>(null)
+  const [tierSilver,  setTierSilver] = useState<number | null>(null)
+  const [tierGold,    setTierGold]   = useState<number | null>(null)
   const [redeeming, setRedeeming] = useState<string | null>(null)
   const [redeemMsg, setRedeemMsg] = useState('')
   const [profileName, setProfileName] = useState('')
@@ -81,9 +83,11 @@ export default function MemberPortalClient() {
       ledgerRes.json(), stampRes.json(), rewardsRes.json(), vouchersRes.json(), settingsRes.json(),
     ])
     if (settingsData.pointsValue) setPointsValue(settingsData.pointsValue)
+    if (settingsData.tierSilver)  setTierSilver(settingsData.tierSilver)
+    if (settingsData.tierGold)    setTierGold(settingsData.tierGold)
     setData({
       member: d.member,
-      membership: { ...d.membership, company_id: companyId },
+      membership: { ...d.membership, company_id: companyId, lifetime_points: d.membership.lifetime_points ?? 0 },
       ledger:   ledgerData.ledger   || [],
       stamp:    stampData.stamp     || null,
       rewards:  rewardsData.rewards || [],
@@ -171,6 +175,34 @@ export default function MemberPortalClient() {
           )}
           <p className="text-xs text-gray-300 mt-2">Member since {new Date(membership.joined_at).toLocaleDateString()}</p>
         </div>
+
+        {/* Tier progress bar */}
+        {(() => {
+          const lp   = membership.lifetime_points ?? 0
+          const tier = membership.tier
+          if (tier === 'gold' || (!tierSilver && !tierGold)) return null
+          const nextTier   = tier === 'bronze' ? 'silver' : 'gold'
+          const target     = tier === 'bronze' ? tierSilver : tierGold
+          const from       = tier === 'bronze' ? 0 : (tierSilver ?? 0)
+          if (!target) return null
+          const pct        = Math.min(100, Math.round(((lp - from) / (target - from)) * 100))
+          const remaining  = Math.max(0, target - lp)
+          const tierAccent = nextTier === 'silver' ? '#6B7280' : '#CA8A04'
+          return (
+            <div className="bg-white rounded-2xl shadow-sm px-5 py-4 mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-gray-400">Progress to <span className="font-semibold capitalize" style={{ color: tierAccent }}>{nextTier}</span></p>
+                <p className="text-xs font-semibold" style={{ color: tierAccent }}>{pct}%</p>
+              </div>
+              <div className="h-2 bg-gray-100 rounded-full overflow-hidden mb-2">
+                <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, backgroundColor: tierAccent }} />
+              </div>
+              <p className="text-xs text-gray-400">
+                <span className="font-semibold text-gray-600">{remaining.toLocaleString()} pts</span> more to reach {nextTier}
+              </p>
+            </div>
+          )
+        })()}
 
         {/* Tab bar */}
         <div className="flex bg-white rounded-2xl border border-gray-100 p-1 mb-4 gap-1">

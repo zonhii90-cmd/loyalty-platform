@@ -39,6 +39,7 @@ export default function PosScreen() {
   const [stampProgress, setStampProgress] = useState<any>(null)
   const [stampAnimIdx,  setStampAnimIdx]  = useState<number | null>(null)
   const [stampAnimKey,  setStampAnimKey]  = useState(0)
+  const [newMemberName, setNewMemberName] = useState('')
 
   useEffect(() => {
     if (!isLoggedIn) router.replace('/pos')
@@ -84,7 +85,7 @@ export default function PosScreen() {
     const r = await fetch('/api/members/lookup', {
       method: 'POST',
       headers: staffHeaders(),
-      body: JSON.stringify({ phone: phone.trim(), company_id: companyId }),
+      body: JSON.stringify({ phone: phone.trim(), company_id: companyId, name: newMemberName.trim() || undefined }),
     })
     const d = await r.json()
     if (r.ok) {
@@ -274,7 +275,7 @@ export default function PosScreen() {
         {tab === 'stamp' && (
           <div className="bg-white rounded-2xl border border-gray-100 p-5">
             <p className="text-xs font-medium text-gray-500 mb-4">Add Stamp</p>
-            <div className="flex gap-2 mb-4">
+            <div className="flex gap-2 mb-2">
               <input value={phone} onChange={e => setPhone(e.target.value)}
                 placeholder="Member phone" type="tel" inputMode="tel"
                 className="flex-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-violet-300" />
@@ -284,6 +285,9 @@ export default function PosScreen() {
                 {lookupLoading ? <Loader2 size={16} className="animate-spin" /> : 'Find'}
               </button>
             </div>
+            <input value={newMemberName} onChange={e => setNewMemberName(e.target.value)}
+              placeholder="Name (optional — for new members)"
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-violet-300 mb-3" />
             {member && (
               <div className="mt-2">
                 <div className="flex items-center justify-between py-3 border-t border-gray-50">
