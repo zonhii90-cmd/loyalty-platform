@@ -54,7 +54,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   await db`
     INSERT INTO points_ledger (membership_id, type, amount, source, note)
-    VALUES (${membershipId}, 'redeem', ${-reward.points_cost}, 'reward', ${`Redeemed: ${reward.name}`})
+    VALUES (${membershipId}, 'redeem', ${-reward.points_cost}, 'reward_redeem', ${`Redeemed: ${reward.name}`})
   `
 
   const voucherRows = await db`
