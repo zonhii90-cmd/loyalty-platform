@@ -26,6 +26,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!rewardRows[0]) return NextResponse.json({ error: 'Reward not found' }, { status: 404 })
   const reward = rewardRows[0]
 
+  const TIER_RANK: Record<string, number> = { bronze: 0, silver: 1, gold: 2 }
+  const memberRank = TIER_RANK[membership.tier] ?? 0
+  const rewardRank = TIER_RANK[reward.min_tier ?? 'bronze'] ?? 0
+  if (memberRank < rewardRank) {
+    return NextResponse.json({ error: `This reward requires ${reward.min_tier} tier or above` }, { status: 403 })
+  }
+
   if (membership.points < reward.points_cost) {
     return NextResponse.json({ error: `Not enough points. Need ${reward.points_cost}, have ${membership.points}` }, { status: 400 })
   }

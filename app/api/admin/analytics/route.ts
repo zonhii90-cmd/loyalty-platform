@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   const cid = auth.companyId
   const db  = sql()
 
-  const [overview, membersByDay, pointsByDay, topMembers, stampStats] = await Promise.all([
+  const [overview, membersByDay, pointsByDay, topMembers, stampStats, tierBreakdown, campaignStats] = await Promise.all([
 
     // Overview tiles
     db`
@@ -50,6 +50,28 @@ export async function GET(req: NextRequest) {
       ORDER BY ms.points DESC LIMIT 10
     `,
 
+    // Tier breakdown
+    db`
+      SELECT tier, COUNT(*) AS count
+      FROM memberships
+      WHERE company_id = ${cid}
+      GROUP BY tier
+    `,
+
+    // Campaign performance (all-time)
+    db`
+      SELECT c.name, c.multiplier, c.starts_at, c.ends_at, c.active,
+             COUNT(pl.id) AS scans,
+             COALESCE(SUM(pl.amount), 0) AS total_points
+      FROM campaigns c
+      LEFT JOIN points_ledger pl ON pl.note LIKE '%' || c.name || '%'
+        AND pl.source = 'qr_scan'
+        AND pl.membership_id IN (SELECT id FROM memberships WHERE company_id = ${cid})
+      WHERE c.company_id = ${cid}
+      GROUP BY c.id, c.name, c.multiplier, c.starts_at, c.ends_at, c.active
+      ORDER BY scans DESC
+    `,
+
     // Stamp card stats
     db`
       SELECT
@@ -71,6 +93,12 @@ export async function GET(req: NextRequest) {
     membersByDay: membersByDay.map(r => ({ day: r.day, count: Number(r.count) })),
     pointsByDay:  pointsByDay.map(r => ({ day: r.day, type: r.type, total: Number(r.total) })),
     topMembers:   topMembers.map(r => ({ ...r, points: Number(r.points) })),
+    tierBreakdown: tierBreakdown.map(r => ({ tier: r.tier, count: Number(r.count) })),
+    campaignStats: campaignStats.map(r => ({
+      name: r.name, multiplier: Number(r.multiplier),
+      starts_at: r.starts_at, ends_at: r.ends_at, active: r.active,
+      scans: Number(r.scans), total_points: Number(r.total_points),
+    })),
     stampStats:   stampStats[0] ? {
       total_cards:       Number(stampStats[0].total_cards),
       total_completed:   Number(stampStats[0].total_completed),

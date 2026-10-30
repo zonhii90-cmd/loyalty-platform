@@ -11,7 +11,7 @@ interface StampProgress {
   count: number; completed_count: number
   goal: number; reward_text: string; earn_mode: string
 }
-interface Reward { id: string; name: string; description: string|null; points_cost: number; validity_days: number }
+interface Reward { id: string; name: string; description: string|null; points_cost: number; validity_days: number; min_tier: string }
 interface Voucher {
   id: string; code: string; type: string; description: string
   expires_at: string|null; redeemed_at: string|null; created_at: string
@@ -309,17 +309,28 @@ export default function MemberPortalClient() {
               </div>
             ) : (
               rewards.map(r => {
-                const canRedeem = membership.points >= r.points_cost
+                const TIER_RANK: Record<string, number> = { bronze: 0, silver: 1, gold: 2 }
+                const tierOk    = (TIER_RANK[membership.tier] ?? 0) >= (TIER_RANK[r.min_tier ?? 'bronze'] ?? 0)
+                const pointsOk  = membership.points >= r.points_cost
+                const canRedeem = tierOk && pointsOk
                 return (
-                  <div key={r.id} className="bg-white rounded-2xl border border-gray-100 p-4">
+                  <div key={r.id} className={'bg-white rounded-2xl border p-4 ' + (!tierOk ? 'border-gray-100 opacity-70' : 'border-gray-100')}>
                     <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center shrink-0 mt-0.5">
-                        🎁
+                      <div className={'w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ' + (tierOk ? 'bg-violet-50' : 'bg-gray-100')}>
+                        {tierOk ? '🎁' : '🔒'}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-gray-800">{r.name}</p>
                         {r.description && <p className="text-xs text-gray-400 mt-0.5">{r.description}</p>}
-                        <p className="text-xs font-bold text-violet-600 mt-1.5">{r.points_cost} points</p>
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <p className="text-xs font-bold text-violet-600">{r.points_cost} points</p>
+                          {r.min_tier && r.min_tier !== 'bronze' && (
+                            <span className={'text-[10px] px-1.5 py-0.5 rounded-full font-medium capitalize ' +
+                              (r.min_tier === 'gold' ? 'bg-yellow-50 text-yellow-700' : 'bg-gray-100 text-gray-500')}>
+                              {r.min_tier}+
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <button
@@ -329,7 +340,10 @@ export default function MemberPortalClient() {
                         (canRedeem
                           ? 'bg-violet-600 text-white hover:bg-violet-700'
                           : 'bg-gray-100 text-gray-400 cursor-not-allowed')}>
-                      {redeeming === r.id ? 'Redeeming…' : canRedeem ? 'Redeem Now' : `Need ${r.points_cost - membership.points} more pts`}
+                      {redeeming === r.id ? 'Redeeming…'
+                        : !tierOk ? `Requires ${r.min_tier} tier`
+                        : !pointsOk ? `Need ${r.points_cost - membership.points} more pts`
+                        : 'Redeem Now'}
                     </button>
                   </div>
                 )

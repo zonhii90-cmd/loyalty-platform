@@ -7,11 +7,11 @@ import { Gift, Plus, Pencil, Trash2, Loader2, X, Check } from 'lucide-react'
 
 type Reward = {
   id: string; name: string; description: string | null
-  points_cost: number; validity_days: number; active: boolean
+  points_cost: number; validity_days: number; min_tier: string; active: boolean
 }
 
-type FormState = { name: string; description: string; points_cost: string; validity_days: string }
-const empty: FormState = { name: '', description: '', points_cost: '', validity_days: '30' }
+type FormState = { name: string; description: string; points_cost: string; validity_days: string; min_tier: string }
+const empty: FormState = { name: '', description: '', points_cost: '', validity_days: '30', min_tier: 'bronze' }
 
 export default function RewardsPage() {
   const { authFetch } = useAuth()
@@ -37,14 +37,14 @@ export default function RewardsPage() {
   }
   function openEdit(r: Reward) {
     setEditing(r)
-    setForm({ name: r.name, description: r.description || '', points_cost: String(r.points_cost), validity_days: String(r.validity_days) })
+    setForm({ name: r.name, description: r.description || '', points_cost: String(r.points_cost), validity_days: String(r.validity_days), min_tier: r.min_tier || 'bronze' })
     setError(''); setShowForm(true)
   }
   function close() { setShowForm(false); setEditing(null); setForm(empty) }
 
   async function save() {
     setError(''); setSaving(true)
-    const body = { name: form.name, description: form.description, points_cost: Number(form.points_cost), validity_days: Number(form.validity_days) }
+    const body = { name: form.name, description: form.description, points_cost: Number(form.points_cost), validity_days: Number(form.validity_days), min_tier: form.min_tier }
     const r = editing
       ? await authFetch(`/api/admin/rewards/${editing.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       : await authFetch('/api/admin/rewards', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -101,7 +101,15 @@ export default function RewardsPage() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-gray-800">{r.name}</p>
                   {r.description && <p className="text-xs text-gray-400 truncate mt-0.5">{r.description}</p>}
-                  <p className="text-xs text-violet-600 font-medium mt-1">{r.points_cost} pts · {r.validity_days}d expiry</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-xs text-violet-600 font-medium">{r.points_cost} pts · {r.validity_days}d expiry</p>
+                    {r.min_tier && r.min_tier !== 'bronze' && (
+                      <span className={'text-[10px] px-1.5 py-0.5 rounded-full font-medium capitalize ' +
+                        (r.min_tier === 'gold' ? 'bg-yellow-50 text-yellow-700' : 'bg-gray-100 text-gray-500')}>
+                        {r.min_tier}+
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="flex gap-2 shrink-0">
                   <button onClick={() => openEdit(r)}
@@ -152,6 +160,19 @@ export default function RewardsPage() {
                     <input value={form.validity_days} onChange={e => setForm(f => ({ ...f, validity_days: e.target.value.replace(/\D/g, '') }))}
                       type="number" inputMode="numeric" placeholder="30"
                       className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-violet-300" />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1.5">Minimum tier required</label>
+                  <div className="flex gap-2">
+                    {(['bronze', 'silver', 'gold'] as const).map(t => (
+                      <button key={t} type="button"
+                        onClick={() => setForm(f => ({ ...f, min_tier: t }))}
+                        className={'flex-1 py-2 rounded-xl text-xs font-medium border transition-colors capitalize ' +
+                          (form.min_tier === t ? 'border-violet-400 bg-violet-50 text-violet-700' : 'border-gray-200 text-gray-400')}>
+                        {t}
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>

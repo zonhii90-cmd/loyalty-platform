@@ -35,6 +35,7 @@ export default function PosScreen() {
   const [searchLoading, setSearchLoading] = useState(false)
   const [receipt, setReceipt] = useState<Receipt | null>(null)
   const [dashStats, setDashStats] = useState<any>(null)
+  const [stampProgress, setStampProgress] = useState<any>(null)
 
   useEffect(() => {
     if (!isLoggedIn) router.replace('/pos')
@@ -76,14 +77,20 @@ export default function PosScreen() {
 
   async function lookupMember() {
     if (!phone.trim()) return
-    setLookupLoading(true); setMember(null)
+    setLookupLoading(true); setMember(null); setStampProgress(null)
     const r = await fetch('/api/members/lookup', {
       method: 'POST',
       headers: staffHeaders(),
       body: JSON.stringify({ phone: phone.trim(), company_id: companyId }),
     })
     const d = await r.json()
-    if (r.ok) setMember({ ...d.membership, member: d.member })
+    if (r.ok) {
+      setMember({ ...d.membership, member: d.member })
+      // Fetch stamp progress for stamp tab
+      const sr = await fetch('/api/members/' + d.membership.id + '/stamps')
+      const sd = await sr.json()
+      if (sd.stamp) setStampProgress(sd.stamp)
+    }
     setLookupLoading(false)
   }
 
@@ -109,6 +116,9 @@ export default function PosScreen() {
       body: JSON.stringify({ membershipId: member.id }),
     })
     const d = await r.json()
+    if (r.ok) {
+      setStampProgress({ count: d.count, goal: d.goal, completed_count: d.completed ? (stampProgress?.completed_count ?? 0) + 1 : (stampProgress?.completed_count ?? 0), reward_text: d.rewardText, earn_mode: 'manual' })
+    }
     setStampMsg(d.message || (r.ok ? 'Stamp added!' : d.error || 'Error'))
     if (r.ok) lookupMember()
   }
@@ -262,7 +272,7 @@ export default function PosScreen() {
                 <div className="flex items-center justify-between py-3 border-t border-gray-50">
                   <div>
                     <p className="text-sm font-medium text-gray-800">{member.member?.name || phone}</p>
-                    <p className="text-xs text-gray-400">{member.points ?? 0} pts</p>
+                    <p className="text-xs text-gray-400">{member.points ?? 0} pts · {member.tier}</p>
                   </div>
                   <button onClick={addStamp}
                     className="px-4 py-2 rounded-xl text-white text-sm font-medium"
@@ -270,7 +280,30 @@ export default function PosScreen() {
                     + Stamp
                   </button>
                 </div>
-                {stampMsg && <p className="text-xs text-center mt-2 text-violet-600">{stampMsg}</p>}
+                {stampProgress && (
+                  <div className="mt-3 p-3 bg-gray-50 rounded-xl">
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {Array.from({ length: stampProgress.goal }).map((_: unknown, i: number) => (
+                        <div key={i} className={'w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs ' +
+                          (i < stampProgress.count ? 'border-transparent text-white' : 'border-gray-200 text-gray-300')}
+                          style={i < stampProgress.count ? { backgroundColor: color } : {}}>
+                          {i < stampProgress.count ? '✓' : ''}
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      <span className="font-semibold" style={{ color }}>{stampProgress.count}</span>/{stampProgress.goal} stamps
+                      {stampProgress.goal - stampProgress.count > 0 && (
+                        <> · {stampProgress.goal - stampProgress.count} more for <span className="font-medium">{stampProgress.reward_text}</span></>
+                      )}
+                    </p>
+                  </div>
+                )}
+                {stampMsg && (
+                  <p className={'text-xs text-center mt-2 font-medium ' + (stampMsg.includes('complete') ? 'text-amber-600' : 'text-violet-600')}>
+                    {stampMsg}
+                  </p>
+                )}
               </div>
             )}
           </div>

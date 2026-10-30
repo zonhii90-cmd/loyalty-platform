@@ -7,17 +7,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!auth) return unauthorized()
   const { id } = await params
 
-  const { name, description, points_cost, validity_days, active } = await req.json()
+  const { name, description, points_cost, validity_days, min_tier, active } = await req.json()
   if (!name?.trim() || !points_cost || points_cost < 1) {
     return NextResponse.json({ error: 'name and points_cost required' }, { status: 400 })
   }
 
+  const tier = ['bronze', 'silver', 'gold'].includes(min_tier) ? min_tier : 'bronze'
   const db = sql()
   const rows = await db`
     UPDATE rewards
     SET name = ${name.trim()}, description = ${description?.trim() || null},
         points_cost = ${points_cost}, validity_days = ${validity_days || 30},
-        active = ${active ?? true}
+        min_tier = ${tier}, active = ${active ?? true}
     WHERE id = ${id} AND company_id = ${auth.companyId}
     RETURNING *
   `

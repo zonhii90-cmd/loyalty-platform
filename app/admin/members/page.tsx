@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import AdminShell from '@/components/AdminShell'
-import { Upload, X, Loader2, CheckCircle } from 'lucide-react'
+import { Upload, X, Loader2, CheckCircle, Download } from 'lucide-react'
 
 interface MemberRow {
   id: string; points: number; tier: string; joined_at: string
@@ -29,7 +29,24 @@ export default function MembersPage() {
   const [showImport, setShowImport] = useState(false)
   const [importing,  setImporting]  = useState(false)
   const [importResult, setImportResult] = useState<{ imported: number; skipped: number; errors: string[] } | null>(null)
+  const [exporting,  setExporting]  = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  async function exportCsv() {
+    setExporting(true)
+    try {
+      const r = await authFetch('/api/admin/members/export')
+      const blob = await r.blob()
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href     = url
+      a.download = `members-${new Date().toISOString().slice(0, 10)}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   async function importCsv(file: File) {
     setImporting(true); setImportResult(null)
@@ -64,6 +81,11 @@ export default function MembersPage() {
           <h1 className="text-xl font-bold text-gray-800">Members</h1>
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-400">{total} total</span>
+            <button onClick={exportCsv} disabled={exporting}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-xs text-gray-500 hover:bg-gray-50 disabled:opacity-50">
+              {exporting ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+              Export CSV
+            </button>
             <button onClick={() => { setShowImport(v => !v); setImportResult(null) }}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-xs text-gray-500 hover:bg-gray-50">
               <Upload size={13} /> Import CSV

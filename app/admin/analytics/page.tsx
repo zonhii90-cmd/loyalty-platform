@@ -65,6 +65,8 @@ interface Analytics {
   membersByDay: { day: string; count: number }[]
   pointsByDay:  { day: string; type: 'earn' | 'redeem'; total: number }[]
   topMembers:   { name: string | null; phone: string; points: number; tier: string }[]
+  tierBreakdown: { tier: string; count: number }[]
+  campaignStats: { name: string; multiplier: number; starts_at: string; ends_at: string; active: boolean; scans: number; total_points: number }[]
   stampStats:   { total_cards: number; total_completed: number; stamps_in_progress: number; avg_current_stamps: number; goal: number } | null
 }
 
@@ -208,6 +210,101 @@ export default function AnalyticsPage() {
                 </div>
               </div>
             </div>
+
+            {/* Tier breakdown */}
+            {data.tierBreakdown.length > 0 && (() => {
+              const total = data.tierBreakdown.reduce((s, r) => s + r.count, 0) || 1
+              const tierColors: Record<string, string> = { bronze: '#d97706', silver: '#6b7280', gold: '#ca8a04' }
+              const sorted = ['bronze', 'silver', 'gold'].map(t => ({
+                tier: t,
+                count: data.tierBreakdown.find(r => r.tier === t)?.count ?? 0,
+              }))
+              // Simple SVG donut
+              let offset = 0
+              const R = 40, cx = 50, cy = 50, stroke = 18
+              const circ = 2 * Math.PI * R
+              return (
+                <div className="bg-white rounded-2xl border border-gray-100 p-5">
+                  <p className="text-sm font-semibold text-gray-700 mb-4">Tier Distribution</p>
+                  <div className="flex items-center gap-8">
+                    <svg viewBox="0 0 100 100" className="w-28 h-28 shrink-0 -rotate-90">
+                      {sorted.map(({ tier, count }) => {
+                        const pct = count / total
+                        const dash = pct * circ
+                        const el = (
+                          <circle key={tier}
+                            cx={cx} cy={cy} r={R}
+                            fill="none"
+                            stroke={tierColors[tier] || '#ccc'}
+                            strokeWidth={stroke}
+                            strokeDasharray={`${dash} ${circ - dash}`}
+                            strokeDashoffset={-offset * circ}
+                          />
+                        )
+                        offset += pct
+                        return el
+                      })}
+                    </svg>
+                    <div className="space-y-2 flex-1">
+                      {sorted.map(({ tier, count }) => (
+                        <div key={tier} className="flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: tierColors[tier] }} />
+                          <span className="text-sm capitalize text-gray-700 flex-1">{tier}</span>
+                          <span className="text-sm font-bold text-gray-800">{count}</span>
+                          <span className="text-xs text-gray-400 w-10 text-right">{Math.round((count / total) * 100)}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* Campaign performance */}
+            {data.campaignStats.length > 0 && (
+              <div className="bg-white rounded-2xl border border-gray-100 p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <Zap size={16} className="text-violet-500" />
+                  <p className="text-sm font-semibold text-gray-700">Campaign Performance</p>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-xs text-gray-400 border-b border-gray-50">
+                        <th className="text-left pb-2 font-medium">Campaign</th>
+                        <th className="text-center pb-2 font-medium">Mult.</th>
+                        <th className="text-right pb-2 font-medium">Scans</th>
+                        <th className="text-right pb-2 font-medium">Points</th>
+                        <th className="text-right pb-2 font-medium">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {data.campaignStats.map(c => (
+                        <tr key={c.name}>
+                          <td className="py-2.5 pr-2">
+                            <p className="font-medium text-gray-800 truncate max-w-[140px]">{c.name}</p>
+                            <p className="text-xs text-gray-400">
+                              {new Date(c.starts_at).toLocaleDateString()} – {new Date(c.ends_at).toLocaleDateString()}
+                            </p>
+                          </td>
+                          <td className="py-2.5 text-center">
+                            <span className="text-xs font-bold text-amber-600">{c.multiplier}×</span>
+                          </td>
+                          <td className="py-2.5 text-right font-medium text-gray-700">{c.scans}</td>
+                          <td className="py-2.5 text-right font-medium text-gray-700">{c.total_points.toLocaleString()}</td>
+                          <td className="py-2.5 text-right">
+                            <span className={'text-[10px] px-2 py-0.5 rounded-full font-medium ' +
+                              (c.active ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-400')}>
+                              {c.active ? 'Live' : 'Ended'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
             {/* Stamp card stats */}
             {data.stampStats && (

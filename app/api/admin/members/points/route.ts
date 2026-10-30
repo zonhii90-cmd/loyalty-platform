@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sql } from '@/lib/db'
 import { validateAdmin, unauthorized } from '@/lib/adminAuth'
+import { addEarnPoints, recalculateTier } from '@/lib/tierUtils'
 
 export async function POST(req: NextRequest) {
   const auth = await validateAdmin(req)
@@ -16,21 +17,32 @@ export async function POST(req: NextRequest) {
 
   const db = sql()
   const msRows = await db`
-    SELECT id, points FROM memberships
+    SELECT id, points, company_id, lifetime_points FROM memberships
     WHERE id = ${membership_id} AND company_id = ${auth.companyId}
     LIMIT 1
   `
   if (!msRows[0]) return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
 
-  const newBalance = msRows[0].points + amount
+  const newBalance = Number(msRows[0].points) + amount
   if (newBalance < 0) return NextResponse.json({ error: 'Insufficient points' }, { status: 400 })
 
+  // For earns: use addEarnPoints so lifetime_points + tier stay in sync
+  if (type === 'earn') {
+    const { newBalance: nb, tier } = await addEarnPoints(
+      membership_id, auth.companyId, amount,
+      'manual', note?.trim() || 'Manual adjustment',
+    )
+    return NextResponse.json({ success: true, points: nb, tier })
+  }
+
+  // For redeem/adjust: update points only (lifetime_points unchanged)
   await db`
     INSERT INTO points_ledger (membership_id, type, amount, source, note, created_by)
     VALUES (${membership_id}, ${type}, ${amount}, 'manual', ${note?.trim() || null}, ${created_by?.trim() || auth.companyId})
   `
   await db`
-    UPDATE memberships SET points = ${newBalance} WHERE id = ${membership_id}
+    UPDATE memberships SET points = ${newBalance}, last_activity_at = now() WHERE id = ${membership_id}
   `
-  return NextResponse.json({ success: true, points: newBalance })
+  const tier = await recalculateTier(membership_id, auth.companyId, Number(msRows[0].lifetime_points))
+  return NextResponse.json({ success: true, points: newBalance, tier })
 }
