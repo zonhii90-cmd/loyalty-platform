@@ -2,13 +2,22 @@ import { NextRequest, NextResponse } from 'next/server'
 import { sql } from '@/lib/db'
 
 export async function POST(req: NextRequest) {
-  const { phone, company_id, name } = await req.json()
-  if (!phone?.trim() || !company_id?.trim()) {
-    return NextResponse.json({ error: 'phone and company_id required' }, { status: 400 })
+  const { phone, company_id, slug, name } = await req.json()
+  if (!phone?.trim() || (!company_id?.trim() && !slug?.trim())) {
+    return NextResponse.json({ error: 'phone and company_id (or slug) required' }, { status: 400 })
   }
 
   const normalised = phone.trim().replace(/\s+/g, '')
   const db = sql()
+
+  // Resolve slug to company_id if needed
+  let resolvedCompanyId = company_id?.trim()
+  if (!resolvedCompanyId && slug) {
+    const cRows = await db`SELECT id FROM companies WHERE slug = ${slug.trim()} LIMIT 1`
+    if (!cRows[0]) return NextResponse.json({ error: 'Company not found' }, { status: 404 })
+    resolvedCompanyId = cRows[0].id
+  }
+  const company_id_final = resolvedCompanyId
 
   // Find or create member
   let member: any
@@ -27,13 +36,13 @@ export async function POST(req: NextRequest) {
   let membership: any
   let isNew = false
   const existingMs = await db`
-    SELECT * FROM memberships WHERE member_id = ${member.id} AND company_id = ${company_id} LIMIT 1
+    SELECT * FROM memberships WHERE member_id = ${member.id} AND company_id = ${company_id_final} LIMIT 1
   `
   if (existingMs[0]) {
     membership = existingMs[0]
   } else {
     const created = await db`
-      INSERT INTO memberships (member_id, company_id) VALUES (${member.id}, ${company_id})
+      INSERT INTO memberships (member_id, company_id) VALUES (${member.id}, ${company_id_final})
       RETURNING *
     `
     membership = created[0]
