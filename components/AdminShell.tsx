@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useEffect, useState } from 'react'
 import {
   LayoutDashboard, Star, Users, Settings, Building2,
-  LogOut, MoreHorizontal,
+  LogOut, MoreHorizontal, UserCog,
 } from 'lucide-react'
 
 type NavItem = { href: string; label: string; icon: React.ReactNode }
@@ -22,6 +22,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   ]
 
   const moreNav: NavItem[] = [
+    { href: '/admin/staff',    label: 'Staff',    icon: <UserCog size={18} /> },
     { href: '/admin/settings', label: 'Settings', icon: <Settings size={18} /> },
     ...(isSuperAdmin
       ? [{ href: '/admin/companies', label: 'Companies', icon: <Building2 size={18} /> }]
@@ -32,6 +33,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const allSideNav: NavItem[] = [
     ...(isSuperAdmin ? [{ href: '/admin/companies', label: 'Companies', icon: <Building2 size={18} /> }] : []),
     ...mainNav,
+    { href: '/admin/staff',    label: 'Staff',    icon: <UserCog size={18} /> },
     { href: '/admin/settings', label: 'Settings', icon: <Settings size={18} /> },
   ]
 
