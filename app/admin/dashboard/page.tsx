@@ -23,10 +23,21 @@ interface Stats {
   }[]
 }
 
+function relTime(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime()
+  const m = Math.floor(diff / 60000)
+  if (m < 60)  return m <= 1 ? 'Just now' : `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24)  return `${h}h ago`
+  const d = Math.floor(h / 24)
+  if (d < 30)  return `${d}d ago`
+  return new Date(iso).toLocaleDateString()
+}
+
 const srcLabel: Record<string, string> = {
   manual: 'Manual', feedback: 'Feedback', purchase: 'Purchase',
   birthday: 'Birthday', adjustment: 'Adjustment', referral: 'Referral',
-  qr_scan: 'QR Scan', stamp_redeem: 'Stamp reward',
+  qr_scan: 'QR Scan', stamp_redeem: 'Stamp reward', reward_redeem: 'Reward redeemed',
 }
 
 export default function DashboardPage() {
@@ -105,7 +116,7 @@ export default function DashboardPage() {
                           {srcLabel[entry.source] || entry.source}
                           {entry.note ? ` · ${entry.note}` : ''}
                         </p>
-                        <p className="text-xs text-gray-300">{new Date(entry.created_at).toLocaleString()}</p>
+                        <p className="text-xs text-gray-300">{relTime(entry.created_at)}</p>
                       </div>
                       <p className={'text-base font-bold shrink-0 ' + (entry.amount > 0 ? 'text-emerald-600' : 'text-red-500')}>
                         {entry.amount > 0 ? '+' : ''}{entry.amount}

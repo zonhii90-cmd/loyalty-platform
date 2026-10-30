@@ -86,8 +86,11 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile header */}
         <header className="md:hidden bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-20">
-          <div className="text-base font-bold text-violet-600">Loyalty Platform</div>
-          <button onClick={logout} className="text-gray-400 p-1"><LogOut size={16} /></button>
+          <div>
+            <div className="text-sm font-bold text-violet-600">Loyalty Platform</div>
+            {companyName && <div className="text-xs text-gray-400">{companyName}</div>}
+          </div>
+          <button onClick={logout} className="text-gray-400 p-2 -mr-1"><LogOut size={18} /></button>
         </header>
 
         <main className="flex-1 p-4 md:p-6 overflow-auto pb-24">{children}</main>

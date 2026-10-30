@@ -66,18 +66,13 @@ export default function RewardsPage() {
   return (
     <AdminShell>
       <div className="p-6 max-w-2xl">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center">
-              <Gift size={20} className="text-violet-600" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">Rewards Catalogue</h1>
-              <p className="text-sm text-gray-400">Members redeem points for these rewards</p>
-            </div>
+        <div className="flex items-start justify-between mb-6 gap-3">
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">Rewards</h1>
+            <p className="text-sm text-gray-400 mt-0.5">Members redeem points for these</p>
           </div>
           <button onClick={openAdd}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-600 text-white text-sm font-medium">
+            className="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-600 text-white text-sm font-medium">
             <Plus size={16} /> Add Reward
           </button>
         </div>

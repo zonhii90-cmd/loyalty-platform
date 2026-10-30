@@ -90,10 +90,12 @@ export default function MembersPage() {
   return (
     <AdminShell>
       <div className="max-w-2xl mx-auto">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-xl font-bold text-gray-800">Members</h1>
-          <div className="flex items-center gap-2">
+        <div className="mb-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-xl font-bold text-gray-800">Members</h1>
             <span className="text-sm text-gray-400">{total} total</span>
+          </div>
+          <div className="flex gap-2 mt-2">
             <button onClick={exportCsv} disabled={exporting}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-xs text-gray-500 hover:bg-gray-50 disabled:opacity-50">
               {exporting ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
