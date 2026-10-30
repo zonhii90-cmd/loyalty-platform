@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useStaff } from '@/lib/staff-context'
 import { QrCode, Stamp, Search, LogOut, Loader2, Ticket, CheckCircle, XCircle, BarChart2, Printer } from 'lucide-react'
+import StampCardVisual from '@/components/StampCardVisual'
 
 type Tab = 'qr' | 'stamp' | 'lookup' | 'redeem' | 'dashboard'
 
@@ -36,6 +37,8 @@ export default function PosScreen() {
   const [receipt, setReceipt] = useState<Receipt | null>(null)
   const [dashStats, setDashStats] = useState<any>(null)
   const [stampProgress, setStampProgress] = useState<any>(null)
+  const [stampAnimIdx,  setStampAnimIdx]  = useState<number | null>(null)
+  const [stampAnimKey,  setStampAnimKey]  = useState(0)
 
   useEffect(() => {
     if (!isLoggedIn) router.replace('/pos')
@@ -89,7 +92,7 @@ export default function PosScreen() {
       // Fetch stamp progress for stamp tab
       const sr = await fetch('/api/members/' + d.membership.id + '/stamps')
       const sd = await sr.json()
-      if (sd.stamp) setStampProgress(sd.stamp)
+      if (sd.stamp) { setStampProgress(sd.stamp); setStampAnimIdx(null) }
     }
     setLookupLoading(false)
   }
@@ -117,10 +120,24 @@ export default function PosScreen() {
     })
     const d = await r.json()
     if (r.ok) {
-      setStampProgress({ count: d.count, goal: d.goal, completed_count: d.completed ? (stampProgress?.completed_count ?? 0) + 1 : (stampProgress?.completed_count ?? 0), reward_text: d.rewardText, earn_mode: 'manual' })
+      const newCount = d.count
+      const prevCount = stampProgress?.count ?? 0
+      setStampProgress({
+        count: newCount, goal: d.goal,
+        completed_count: d.completed ? (stampProgress?.completed_count ?? 0) + 1 : (stampProgress?.completed_count ?? 0),
+        reward_text: d.rewardText, earn_mode: 'manual',
+        accent_color: d.accent_color, stamp_icon: d.stamp_icon, card_bg: d.card_bg,
+      })
+      // Animate the newly added stamp (index = newCount - 1, unless card reset to 1)
+      if (newCount > prevCount || newCount === 1) {
+        const idx = newCount - 1
+        setStampAnimIdx(idx)
+        setStampAnimKey(k => k + 1)
+        setTimeout(() => setStampAnimIdx(null), 800)
+      }
     }
     setStampMsg(d.message || (r.ok ? 'Stamp added!' : d.error || 'Error'))
-    if (r.ok) lookupMember()
+    if (r.ok && !d.completed) lookupMember()
   }
 
   async function redeemVoucher() {
@@ -281,26 +298,23 @@ export default function PosScreen() {
                   </button>
                 </div>
                 {stampProgress && (
-                  <div className="mt-3 p-3 bg-gray-50 rounded-xl">
-                    <div className="flex flex-wrap gap-1.5 mb-2">
-                      {Array.from({ length: stampProgress.goal }).map((_: unknown, i: number) => (
-                        <div key={i} className={'w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs ' +
-                          (i < stampProgress.count ? 'border-transparent text-white' : 'border-gray-200 text-gray-300')}
-                          style={i < stampProgress.count ? { backgroundColor: color } : {}}>
-                          {i < stampProgress.count ? '✓' : ''}
-                        </div>
-                      ))}
-                    </div>
-                    <p className="text-xs text-gray-500">
-                      <span className="font-semibold" style={{ color }}>{stampProgress.count}</span>/{stampProgress.goal} stamps
-                      {stampProgress.goal - stampProgress.count > 0 && (
-                        <> · {stampProgress.goal - stampProgress.count} more for <span className="font-medium">{stampProgress.reward_text}</span></>
-                      )}
-                    </p>
+                  <div className="mt-3">
+                    <StampCardVisual
+                      count={stampProgress.count}
+                      goal={stampProgress.goal}
+                      reward_text={stampProgress.reward_text}
+                      accent_color={stampProgress.accent_color}
+                      stamp_icon={stampProgress.stamp_icon}
+                      card_bg={stampProgress.card_bg}
+                      completed_count={stampProgress.completed_count}
+                      newStampIndex={stampAnimIdx}
+                      animKey={stampAnimKey}
+                      compact
+                    />
                   </div>
                 )}
                 {stampMsg && (
-                  <p className={'text-xs text-center mt-2 font-medium ' + (stampMsg.includes('complete') ? 'text-amber-600' : 'text-violet-600')}>
+                  <p className={'text-xs text-center mt-2 font-medium ' + (stampMsg.includes('complete') || stampMsg.includes('Complete') ? 'text-amber-600' : 'text-violet-600')}>
                     {stampMsg}
                   </p>
                 )}

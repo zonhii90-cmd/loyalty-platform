@@ -28,7 +28,6 @@ export async function POST(req: NextRequest) {
   }
   const membership = msRows[0]
 
-  // Find active manual stamp card for this company
   const cardRows = await db`
     SELECT * FROM stamp_cards
     WHERE company_id = ${staff.companyId} AND active = true AND earn_mode = 'manual'
@@ -55,16 +54,30 @@ export async function POST(req: NextRequest) {
     stampRow = created[0]
   }
 
-  const newCount = stampRow.count + 1
+  // If card is already complete, reset it and start fresh
+  if (stampRow.count >= card.goal) {
+    await db`UPDATE member_stamps SET count = 1, updated_at = now() WHERE id = ${stampRow.id}`
+    return NextResponse.json({
+      success: true, count: 1, goal: card.goal, completed: false,
+      rewardText: card.reward_text,
+      accent_color: card.accent_color || '#F59E0B',
+      stamp_icon: card.stamp_icon || '★',
+      card_bg: card.card_bg || 'white',
+      message: `New card started! (1/${card.goal})`,
+    })
+  }
+
+  const newCount  = stampRow.count + 1
   const completed = newCount >= card.goal
 
   let voucherCode: string | null = null
   if (completed) {
     voucherCode = generateCode()
     const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    // Keep count at goal so completed state is visible until staff resets
     await db`
       UPDATE member_stamps
-      SET count = 0, completed_count = completed_count + 1, updated_at = now()
+      SET count = ${card.goal}, completed_count = completed_count + 1, updated_at = now()
       WHERE id = ${stampRow.id}
     `
     await db`
@@ -78,7 +91,7 @@ export async function POST(req: NextRequest) {
   }
 
   const message = completed
-    ? `Stamp card complete! Voucher ${voucherCode} generated for: ${card.reward_text}`
+    ? `Card complete! Voucher ${voucherCode} issued for: ${card.reward_text}`
     : `Stamp added (${newCount}/${card.goal})`
 
   // Fetch member phone for notification
@@ -97,11 +110,14 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     success: true,
-    count: completed ? 0 : newCount,
+    count: completed ? card.goal : newCount,
     goal: card.goal,
     completed,
     voucherCode,
     rewardText: card.reward_text,
+    accent_color: card.accent_color || '#F59E0B',
+    stamp_icon: card.stamp_icon || '★',
+    card_bg: card.card_bg || 'white',
     message,
   })
 }

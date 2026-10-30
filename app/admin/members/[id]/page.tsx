@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import AdminShell from '@/components/AdminShell'
@@ -32,7 +32,7 @@ const srcLabel: Record<string, string> = {
   qr_scan: 'QR Scan', stamp_redeem: 'Stamp', reward: 'Reward Redeem',
 }
 
-export default function MemberDetailPage() {
+function MemberDetailInner() {
   const { id } = useParams<{ id: string }>()
   const router  = useRouter()
   const { authFetch } = useAuth()
@@ -224,4 +224,8 @@ export default function MemberDetailPage() {
       </div>
     </AdminShell>
   )
+}
+
+export default function MemberDetailPage() {
+  return <Suspense><MemberDetailInner /></Suspense>
 }

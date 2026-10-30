@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
+import StampCardVisual from '@/components/StampCardVisual'
 
 interface LedgerEntry {
   id: string; type: 'earn'|'redeem'|'adjust'; amount: number
@@ -10,6 +11,7 @@ interface LedgerEntry {
 interface StampProgress {
   count: number; completed_count: number
   goal: number; reward_text: string; earn_mode: string
+  accent_color?: string; stamp_icon?: string; card_bg?: string
 }
 interface Reward { id: string; name: string; description: string|null; points_cost: number; validity_days: number; min_tier: string }
 interface Voucher {
@@ -190,25 +192,16 @@ export default function MemberPortalClient() {
         {tab === 'overview' && (
           <>
             {stamp && (
-              <div className="bg-white rounded-3xl shadow-sm p-4 mb-4">
-                <p className="text-xs font-medium text-gray-500 mb-3">Stamp Card</p>
-                <div className="flex flex-wrap gap-1.5 mb-3">
-                  {Array.from({ length: stamp.goal }).map((_, i) => (
-                    <div key={i} className={'w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs ' +
-                      (i < stamp.count ? 'bg-violet-500 border-violet-500 text-white' : 'border-gray-200 text-gray-300')}>
-                      {i < stamp.count ? '✓' : ''}
-                    </div>
-                  ))}
-                </div>
-                <p className="text-xs text-gray-400">
-                  <span className="font-semibold text-violet-600">{stamp.count}</span>/{stamp.goal} stamps ·{' '}
-                  {stamp.goal - stamp.count > 0
-                    ? <>{stamp.goal - stamp.count} more for <span className="font-medium text-gray-600">{stamp.reward_text}</span></>
-                    : 'Card complete!'}
-                </p>
-                {stamp.completed_count > 0 && (
-                  <p className="text-xs text-gray-300 mt-1">Completed {stamp.completed_count}× before</p>
-                )}
+              <div className="mb-4">
+                <StampCardVisual
+                  count={stamp.count}
+                  goal={stamp.goal}
+                  reward_text={stamp.reward_text}
+                  accent_color={stamp.accent_color}
+                  stamp_icon={stamp.stamp_icon}
+                  card_bg={stamp.card_bg as any}
+                  completed_count={stamp.completed_count}
+                />
               </div>
             )}
 
