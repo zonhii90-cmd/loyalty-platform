@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useEffect, useState } from 'react'
 import {
   LayoutDashboard, Star, Users, Settings, Building2,
-  LogOut, MoreHorizontal, UserCog, Stamp, Gift,
+  LogOut, MoreHorizontal, UserCog, Stamp, Gift, BarChart2,
 } from 'lucide-react'
 
 type NavItem = { href: string; label: string; icon: React.ReactNode }
@@ -17,8 +17,9 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const [showMore, setShowMore] = useState(false)
 
   const mainNav: NavItem[] = [
-    { href: '/admin/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
-    { href: '/admin/members',   label: 'Members',   icon: <Star size={18} /> },
+    { href: '/admin/dashboard',  label: 'Dashboard',  icon: <LayoutDashboard size={18} /> },
+    { href: '/admin/members',    label: 'Members',    icon: <Star size={18} /> },
+    { href: '/admin/analytics',  label: 'Analytics',  icon: <BarChart2 size={18} /> },
   ]
 
   const moreNav: NavItem[] = [
@@ -34,7 +35,9 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
   const allSideNav: NavItem[] = [
     ...(isSuperAdmin ? [{ href: '/admin/companies', label: 'Companies', icon: <Building2 size={18} /> }] : []),
-    ...mainNav,
+    { href: '/admin/dashboard',  label: 'Dashboard',  icon: <LayoutDashboard size={18} /> },
+    { href: '/admin/members',    label: 'Members',    icon: <Star size={18} /> },
+    { href: '/admin/analytics',  label: 'Analytics',  icon: <BarChart2 size={18} /> },
     { href: '/admin/rewards',    label: 'Rewards',    icon: <Gift size={18} /> },
     { href: '/admin/staff',      label: 'Staff',      icon: <UserCog size={18} /> },
     { href: '/admin/stamp-card', label: 'Stamp Card', icon: <Stamp size={18} /> },
