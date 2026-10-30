@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import AdminShell from '@/components/AdminShell'
 import { useAuth } from '@/lib/auth-context'
-import { BarChart2, Users, Zap, Ticket, Download, Loader2, TrendingUp, Stamp } from 'lucide-react'
+import { BarChart2, Users, Zap, Ticket, Download, Loader2, TrendingUp, Stamp, Gift, UserCheck } from 'lucide-react'
 
 /* ── tiny SVG chart helpers ───────────────────────────────────────────── */
 
@@ -67,6 +67,8 @@ interface Analytics {
   topMembers:   { name: string | null; phone: string; points: number; tier: string }[]
   tierBreakdown: { tier: string; count: number }[]
   campaignStats: { name: string; multiplier: number; starts_at: string; ends_at: string; active: boolean; scans: number; total_points: number }[]
+  staffStats:   { id: string; name: string; role: string; scans: number; points_awarded: number; unique_members: number }[]
+  rewardStats:  { id: string; name: string; points_cost: number; min_tier: string; total_issued: number; total_used: number; avg_days_to_use: number | null }[]
   stampStats:   { total_cards: number; total_completed: number; stamps_in_progress: number; avg_current_stamps: number; goal: number } | null
 }
 
@@ -300,6 +302,100 @@ export default function AnalyticsPage() {
                           </td>
                         </tr>
                       ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Staff performance */}
+            {data.staffStats.length > 0 && (
+              <div className="bg-white rounded-2xl border border-gray-100 p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <UserCheck size={16} className="text-violet-500" />
+                  <p className="text-sm font-semibold text-gray-700">Staff Performance</p>
+                  <span className="text-xs text-gray-400 ml-auto">Last 30 days</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-xs text-gray-400 border-b border-gray-50">
+                        <th className="text-left pb-2 font-medium">Staff</th>
+                        <th className="text-center pb-2 font-medium">Scans</th>
+                        <th className="text-right pb-2 font-medium">Points given</th>
+                        <th className="text-right pb-2 font-medium">Members</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {data.staffStats.map((s, i) => (
+                        <tr key={s.id}>
+                          <td className="py-2.5 pr-2">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center text-violet-600 text-xs font-bold shrink-0">
+                                {s.name.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <p className="font-medium text-gray-800">{s.name}</p>
+                                <p className="text-xs text-gray-400 capitalize">{s.role}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-2.5 text-center">
+                            <span className={'text-sm font-bold ' + (i === 0 ? 'text-violet-600' : 'text-gray-700')}>{s.scans}</span>
+                          </td>
+                          <td className="py-2.5 text-right font-medium text-gray-700">{s.points_awarded.toLocaleString()}</td>
+                          <td className="py-2.5 text-right text-gray-500">{s.unique_members}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Reward redemption stats */}
+            {data.rewardStats.length > 0 && (
+              <div className="bg-white rounded-2xl border border-gray-100 p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <Gift size={16} className="text-violet-500" />
+                  <p className="text-sm font-semibold text-gray-700">Reward Redemptions</p>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-xs text-gray-400 border-b border-gray-50">
+                        <th className="text-left pb-2 font-medium">Reward</th>
+                        <th className="text-center pb-2 font-medium">Issued</th>
+                        <th className="text-center pb-2 font-medium">Used</th>
+                        <th className="text-right pb-2 font-medium">Use rate</th>
+                        <th className="text-right pb-2 font-medium">Avg days</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {data.rewardStats.map(r => {
+                        const rate = r.total_issued > 0 ? Math.round((r.total_used / r.total_issued) * 100) : 0
+                        return (
+                          <tr key={r.id}>
+                            <td className="py-2.5 pr-2">
+                              <p className="font-medium text-gray-800 truncate max-w-[140px]">{r.name}</p>
+                              <p className="text-xs text-gray-400">{r.points_cost} pts{r.min_tier !== 'bronze' ? ` · ${r.min_tier}+` : ''}</p>
+                            </td>
+                            <td className="py-2.5 text-center font-medium text-gray-700">{r.total_issued}</td>
+                            <td className="py-2.5 text-center font-medium text-gray-700">{r.total_used}</td>
+                            <td className="py-2.5 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <div className="w-12 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                  <div className="h-full bg-emerald-400 rounded-full" style={{ width: `${rate}%` }} />
+                                </div>
+                                <span className="text-xs text-gray-600 w-8 text-right">{rate}%</span>
+                              </div>
+                            </td>
+                            <td className="py-2.5 text-right text-gray-500 text-xs">
+                              {r.avg_days_to_use !== null ? `${r.avg_days_to_use}d` : '—'}
+                            </td>
+                          </tr>
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>

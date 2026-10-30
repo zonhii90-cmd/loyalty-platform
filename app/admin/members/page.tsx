@@ -7,9 +7,19 @@ import AdminShell from '@/components/AdminShell'
 import { Upload, X, Loader2, CheckCircle, Download } from 'lucide-react'
 
 interface MemberRow {
-  id: string; points: number; tier: string; joined_at: string
+  id: string; points: number; tier: string; joined_at: string; last_activity_at: string | null
   member: { id: string; phone: string; name: string | null }
 }
+
+type Segment = '' | 'new' | 'active' | 'at_risk' | 'lapsed'
+
+const SEGMENTS: { id: Segment; label: string; emoji: string }[] = [
+  { id: '',        label: 'All',      emoji: '' },
+  { id: 'new',     label: 'New',      emoji: '🆕' },
+  { id: 'active',  label: 'Active',   emoji: '🔥' },
+  { id: 'at_risk', label: 'At Risk',  emoji: '⚠️' },
+  { id: 'lapsed',  label: 'Lapsed',   emoji: '💤' },
+]
 
 const tierColor: Record<string, string> = {
   bronze: 'text-amber-600 bg-amber-50',
@@ -25,6 +35,7 @@ export default function MembersPage() {
   const [page,       setPage]       = useState(1)
   const [q,          setQ]          = useState('')
   const [inputQ,     setInputQ]     = useState('')
+  const [segment,    setSegment]    = useState<Segment>('')
   const [loading,    setLoading]    = useState(true)
   const [showImport, setShowImport] = useState(false)
   const [importing,  setImporting]  = useState(false)
@@ -66,13 +77,15 @@ export default function MembersPage() {
     setLoading(true)
     const params = new URLSearchParams({ page: String(page) })
     if (q) params.set('q', q)
+    if (segment) params.set('segment', segment)
     authFetch('/api/admin/members?' + params)
       .then(r => r.json())
       .then(d => { setRows(d.members || []); setTotal(d.total || 0) })
       .finally(() => setLoading(false))
-  }, [page, q])
+  }, [page, q, segment])
 
   function search() { setPage(1); setQ(inputQ) }
+  function pickSegment(s: Segment) { setSegment(s); setPage(1) }
 
   return (
     <AdminShell>
@@ -121,6 +134,17 @@ export default function MembersPage() {
           </div>
         )}
 
+        {/* Segment filters */}
+        <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
+          {SEGMENTS.map(s => (
+            <button key={s.id} onClick={() => pickSegment(s.id)}
+              className={'shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ' +
+                (segment === s.id ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-gray-500 border-gray-200 hover:border-violet-200')}>
+              {s.emoji && <span className="mr-1">{s.emoji}</span>}{s.label}
+            </button>
+          ))}
+        </div>
+
         <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4 flex gap-2">
           <input
             value={inputQ}
@@ -163,9 +187,22 @@ export default function MembersPage() {
                 </div>
                 <div className="flex flex-col items-end gap-1 shrink-0">
                   <p className="text-lg font-bold text-violet-600">{row.points} <span className="text-xs font-normal text-gray-400">pts</span></p>
-                  <span className={'text-[10px] px-2 py-0.5 rounded-full font-medium ' + (tierColor[row.tier] || 'text-gray-400 bg-gray-100')}>
-                    {row.tier}
-                  </span>
+                  <div className="flex items-center gap-1">
+                    {(() => {
+                      const now = Date.now()
+                      const last = row.last_activity_at ? new Date(row.last_activity_at).getTime() : 0
+                      const joinedAgo = now - new Date(row.joined_at).getTime()
+                      const idleDays = last ? (now - last) / 86400000 : 9999
+                      if (joinedAgo < 14 * 86400000) return <span className="text-[9px]">🆕</span>
+                      if (idleDays <= 30) return <span className="text-[9px]">🔥</span>
+                      if (idleDays <= 90 && row.points > 0) return <span className="text-[9px]">⚠️</span>
+                      if (idleDays > 90 && row.points > 0) return <span className="text-[9px]">💤</span>
+                      return null
+                    })()}
+                    <span className={'text-[10px] px-2 py-0.5 rounded-full font-medium ' + (tierColor[row.tier] || 'text-gray-400 bg-gray-100')}>
+                      {row.tier}
+                    </span>
+                  </div>
                 </div>
               </button>
             ))}

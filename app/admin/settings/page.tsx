@@ -210,6 +210,14 @@ export default function SettingsPage() {
                 className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-violet-300" />
             </div>
             <div>
+              <label className="text-xs text-gray-400 mb-1.5 block">Points value <span className="text-gray-300">(RM per 1 point, e.g. 0.01 = 100 pts = RM 1)</span></label>
+              <input type="number" min="0" step="0.001"
+                value={settings.pointsValue ?? ''}
+                onChange={e => setSettings(s => ({ ...s, pointsValue: e.target.value }))}
+                placeholder="0.01"
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-violet-300" />
+            </div>
+            <div>
               <label className="text-xs text-gray-400 mb-1.5 block">Points expiry <span className="text-gray-300">(days of inactivity before points expire, 0 = never)</span></label>
               <input type="number" min="0"
                 value={settings.expiry_days ?? ''}

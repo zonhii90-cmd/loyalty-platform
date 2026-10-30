@@ -45,10 +45,11 @@ export default function MemberPortalClient() {
   const router    = useRouter()
   const companyId = searchParams.get('c') || ''
 
-  const [data,    setData]    = useState<PortalData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [err,     setErr]     = useState('')
-  const [tab,     setTab]     = useState<Tab>('overview')
+  const [data,        setData]       = useState<PortalData | null>(null)
+  const [loading,     setLoading]    = useState(true)
+  const [err,         setErr]        = useState('')
+  const [tab,         setTab]        = useState<Tab>('overview')
+  const [pointsValue, setPointsValue]= useState<number | null>(null)
   const [redeeming, setRedeeming] = useState<string | null>(null)
   const [redeemMsg, setRedeemMsg] = useState('')
   const [profileName, setProfileName] = useState('')
@@ -67,15 +68,17 @@ export default function MemberPortalClient() {
     const d = await lookupRes.json()
     if (d.error) { setErr(d.error); setLoading(false); return }
 
-    const [ledgerRes, stampRes, rewardsRes, vouchersRes] = await Promise.all([
+    const [ledgerRes, stampRes, rewardsRes, vouchersRes, settingsRes] = await Promise.all([
       fetch('/api/members/' + d.membership.id + '/ledger'),
       fetch('/api/members/' + d.membership.id + '/stamps'),
       fetch('/api/rewards?company_id=' + companyId),
       fetch('/api/members/' + d.membership.id + '/vouchers'),
+      fetch('/api/company/settings?id=' + companyId),
     ])
-    const [ledgerData, stampData, rewardsData, vouchersData] = await Promise.all([
-      ledgerRes.json(), stampRes.json(), rewardsRes.json(), vouchersRes.json(),
+    const [ledgerData, stampData, rewardsData, vouchersData, settingsData] = await Promise.all([
+      ledgerRes.json(), stampRes.json(), rewardsRes.json(), vouchersRes.json(), settingsRes.json(),
     ])
+    if (settingsData.pointsValue) setPointsValue(settingsData.pointsValue)
     setData({
       member: d.member,
       membership: { ...d.membership, company_id: companyId },
@@ -161,6 +164,9 @@ export default function MemberPortalClient() {
         <div className="bg-white rounded-3xl shadow-sm p-6 text-center mb-4">
           <p className="text-xs text-gray-400 mb-1">Your Points Balance</p>
           <p className="text-5xl font-bold text-violet-600">{membership.points}</p>
+          {pointsValue && (
+            <p className="text-sm text-violet-400 mt-1">≈ RM {(membership.points * pointsValue).toFixed(2)}</p>
+          )}
           <p className="text-xs text-gray-300 mt-2">Member since {new Date(membership.joined_at).toLocaleDateString()}</p>
         </div>
 
