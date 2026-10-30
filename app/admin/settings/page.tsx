@@ -148,15 +148,15 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Portal link */}
+        {/* Portal link + QR */}
         {portalUrl && (
           <div className="bg-white rounded-2xl border border-gray-100 p-5">
             <div className="flex items-center gap-2 mb-3">
               <Link size={16} className="text-violet-500" />
-              <p className="text-sm font-semibold text-gray-700">Member Portal Link</p>
+              <p className="text-sm font-semibold text-gray-700">Member Portal</p>
             </div>
-            <p className="text-xs text-gray-400 mb-3">Share this link or print it as a QR code for customers to access their account</p>
-            <div className="flex gap-2">
+            <p className="text-xs text-gray-400 mb-3">Share this link or display the QR code for customers to access their account</p>
+            <div className="flex gap-2 mb-5">
               <input readOnly value={portalUrl}
                 className="flex-1 px-3 py-2 rounded-xl border border-gray-200 text-xs text-gray-600 bg-gray-50 focus:outline-none" />
               <button onClick={() => navigator.clipboard?.writeText(portalUrl)}
@@ -164,6 +164,27 @@ export default function SettingsPage() {
                 style={{ backgroundColor: branding.primary_color }}>
                 Copy
               </button>
+            </div>
+
+            {/* QR code */}
+            <div className="flex flex-col items-center gap-3 pt-4 border-t border-gray-50">
+              <p className="text-xs text-gray-400 self-start">QR Code</p>
+              <div className="p-3 border border-gray-100 rounded-2xl bg-white shadow-sm">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=0&data=${encodeURIComponent(portalUrl)}`}
+                  alt="Portal QR code"
+                  width={220} height={220}
+                  className="block"
+                />
+              </div>
+              <a
+                href={`https://api.qrserver.com/v1/create-qr-code/?size=600x600&margin=20&data=${encodeURIComponent(portalUrl)}`}
+                download={`qr-${branding.slug}.png`}
+                target="_blank" rel="noreferrer"
+                className="px-4 py-2 rounded-xl text-xs font-medium text-white flex items-center gap-1.5"
+                style={{ backgroundColor: branding.primary_color }}>
+                Download QR (600×600)
+              </a>
             </div>
           </div>
         )}
