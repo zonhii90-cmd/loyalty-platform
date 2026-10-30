@@ -64,7 +64,7 @@ export async function notify(
 
   const db = sql()
   const [settingsRows, companyRows] = await Promise.all([
-    db`SELECT data FROM settings WHERE company_id = ${companyId} LIMIT 1`,
+    db`SELECT data FROM settings WHERE id = ${companyId} LIMIT 1`,
     db`SELECT name FROM companies WHERE id = ${companyId} LIMIT 1`,
   ])
   const settings: Record<string, any> = settingsRows[0]?.data || {}

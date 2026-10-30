@@ -37,15 +37,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: `Not enough points. Need ${reward.points_cost}, have ${membership.points}` }, { status: 400 })
   }
 
-  const newBalance = membership.points - reward.points_cost
-  const code       = generateCode()
-  const expires    = new Date(Date.now() + (reward.validity_days || 30) * 24 * 60 * 60 * 1000)
+  const code    = generateCode()
+  const expires = new Date(Date.now() + (reward.validity_days || 30) * 24 * 60 * 60 * 1000)
+
+  // Atomic deduct — prevents double-spend race condition
+  const deducted = await db`
+    UPDATE memberships
+    SET points = points - ${reward.points_cost}, last_activity_at = now()
+    WHERE id = ${membershipId} AND points >= ${reward.points_cost}
+    RETURNING points
+  `
+  if (!deducted[0]) {
+    return NextResponse.json({ error: 'Not enough points' }, { status: 400 })
+  }
+  const newBalance = deducted[0].points as number
 
   await db`
     INSERT INTO points_ledger (membership_id, type, amount, source, note)
     VALUES (${membershipId}, 'redeem', ${-reward.points_cost}, 'reward', ${`Redeemed: ${reward.name}`})
   `
-  await db`UPDATE memberships SET points = ${newBalance}, last_activity_at = now() WHERE id = ${membershipId}`
 
   const voucherRows = await db`
     INSERT INTO vouchers (membership_id, reward_id, code, type, description, expires_at)
