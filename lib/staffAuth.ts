@@ -38,9 +38,9 @@ export async function validateStaff(req: NextRequest): Promise<StaffAuth | null>
     WHERE id = ${staffId} AND company_id = ${companyId} AND active = true
     LIMIT 1
   `
-  const s = rows[0]
-  if (!s) return null
-  return { staffId: s.id, staffName: s.name, staffRole: s.role, companyId: s.company_id }
+  const staffRow = rows[0]
+  if (!staffRow) return null
+  return { staffId: staffRow.id, staffName: staffRow.name, staffRole: staffRow.role, companyId: staffRow.company_id }
 }
 
 export function staffUnauthorized() {

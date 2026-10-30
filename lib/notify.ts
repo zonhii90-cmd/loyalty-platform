@@ -1,4 +1,5 @@
 import { sql } from '@/lib/db'
+import { toE164, sendKapso } from '@/lib/kapso'
 
 type NotifType = 'welcome' | 'points_earned' | 'stamp_complete' | 'voucher_created' | 'expiry_warning'
 
@@ -12,14 +13,6 @@ interface NotifData {
   voucherCode?: string
   voucherDesc?: string
   expiryDays?:  number
-}
-
-function toE164(phone: string): string {
-  const digits = phone.replace(/\D/g, '')
-  if (digits.startsWith('60'))   return '+' + digits
-  if (digits.startsWith('0'))    return '+6' + digits
-  if (digits.startsWith('+'))    return phone.replace(/\s/g, '')
-  return '+' + digits
 }
 
 function buildMessage(type: NotifType, data: NotifData): string {
@@ -37,20 +30,6 @@ function buildMessage(type: NotifType, data: NotifData): string {
       return `⚠️ Reminder: your points at ${name} expire in ${data.expiryDays} days. Visit us to keep earning!`
     default:
       return ''
-  }
-}
-
-async function sendKapso(to: string, body: string): Promise<void> {
-  const apiKey      = process.env.KAPSO_API_KEY!
-  const phoneNumId  = process.env.KAPSO_PHONE_NUMBER_ID!
-  const res = await fetch(`https://api.kapso.ai/meta/whatsapp/${phoneNumId}/messages`, {
-    method:  'POST',
-    headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ messaging_product: 'whatsapp', to, type: 'text', text: { body } }),
-  })
-  if (!res.ok) {
-    const err = await res.text()
-    console.error('[notify] Kapso error:', err)
   }
 }
 

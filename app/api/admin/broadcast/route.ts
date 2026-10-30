@@ -1,27 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sql } from '@/lib/db'
 import { validateAdmin, unauthorized } from '@/lib/adminAuth'
+import { toE164, sendKapso } from '@/lib/kapso'
 
 type Segment = 'all' | 'new' | 'active' | 'at_risk' | 'lapsed'
-
-function toE164(phone: string): string {
-  const digits = phone.replace(/\D/g, '')
-  if (digits.startsWith('60')) return '+' + digits
-  if (digits.startsWith('0'))  return '+6' + digits
-  if (digits.startsWith('+'))  return phone.replace(/\s/g, '')
-  return '+' + digits
-}
-
-async function sendKapso(to: string, body: string): Promise<boolean> {
-  const apiKey     = process.env.KAPSO_API_KEY!
-  const phoneNumId = process.env.KAPSO_PHONE_NUMBER_ID!
-  const res = await fetch(`https://api.kapso.ai/meta/whatsapp/${phoneNumId}/messages`, {
-    method:  'POST',
-    headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ messaging_product: 'whatsapp', to, type: 'text', text: { body } }),
-  })
-  return res.ok
-}
 
 function buildFilter(db: ReturnType<typeof sql>, segment: Segment) {
   switch (segment) {
@@ -81,13 +63,13 @@ export async function POST(req: NextRequest) {
   const text        = message.trim().replace(/\{company\}/g, companyName)
 
   let sent = 0, failed = 0
-  for (const row of members) {
-    const e164 = toE164(row.phone as string)
-    try {
-      const ok = await sendKapso(e164, text)
-      ok ? sent++ : failed++
-    } catch {
-      failed++
+  const BATCH = 10
+  for (let i = 0; i < members.length; i += BATCH) {
+    const results = await Promise.allSettled(
+      members.slice(i, i + BATCH).map(row => sendKapso(toE164(row.phone as string), text))
+    )
+    for (const r of results) {
+      r.status === 'fulfilled' && r.value ? sent++ : failed++
     }
   }
 
