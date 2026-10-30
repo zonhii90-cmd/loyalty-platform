@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sql } from '@/lib/db'
 import { validateStaff, staffUnauthorized } from '@/lib/staffAuth'
+import { notify } from '@/lib/notify'
 
 function generateCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -79,6 +80,20 @@ export async function POST(req: NextRequest) {
   const message = completed
     ? `Stamp card complete! Voucher ${voucherCode} generated for: ${card.reward_text}`
     : `Stamp added (${newCount}/${card.goal})`
+
+  // Fetch member phone for notification
+  const memberRows = await db`
+    SELECT m.phone FROM memberships ms JOIN members m ON m.id = ms.member_id
+    WHERE ms.id = ${membershipId} LIMIT 1
+  `
+  if (memberRows[0]?.phone) {
+    if (completed) {
+      notify(memberRows[0].phone, staff.companyId, 'stamp_complete', {
+        rewardText: card.reward_text,
+        voucherCode: voucherCode ?? undefined,
+      }).catch(() => {})
+    }
+  }
 
   return NextResponse.json({
     success: true,

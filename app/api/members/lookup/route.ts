@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sql } from '@/lib/db'
+import { notify } from '@/lib/notify'
 
 export async function POST(req: NextRequest) {
   const { phone, company_id, slug, name } = await req.json()
@@ -47,6 +48,10 @@ export async function POST(req: NextRequest) {
     `
     membership = created[0]
     isNew = true
+  }
+
+  if (isNew) {
+    notify(normalised, company_id_final, 'welcome').catch(() => {})
   }
 
   return NextResponse.json({ member, membership, isNew })

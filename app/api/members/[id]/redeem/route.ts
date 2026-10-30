@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sql } from '@/lib/db'
+import { notify } from '@/lib/notify'
 
 function generateCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -44,6 +45,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     VALUES (${membershipId}, ${rewardId}, ${code}, 'reward', ${reward.name}, ${expires.toISOString()})
     RETURNING *
   `
+
+  // Fetch member phone for notification
+  const memberRows = await db`
+    SELECT m.phone FROM memberships ms JOIN members m ON m.id = ms.member_id
+    WHERE ms.id = ${membershipId} LIMIT 1
+  `
+  if (memberRows[0]?.phone) {
+    notify(memberRows[0].phone, membership.company_id, 'voucher_created', {
+      voucherCode: code,
+      voucherDesc: reward.name,
+    }).catch(() => {})
+  }
 
   return NextResponse.json({
     success: true,

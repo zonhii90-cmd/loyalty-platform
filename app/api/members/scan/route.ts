@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sql } from '@/lib/db'
+import { notify } from '@/lib/notify'
 
 export async function POST(req: NextRequest) {
   const { token, phone, name } = await req.json()
@@ -67,7 +68,7 @@ export async function POST(req: NextRequest) {
   `
 
   // Add stamp if company has active QR-mode stamp card
-  let stampResult: { completed: boolean; count: number; goal: number; rewardText: string } | null = null
+  let stampResult: { completed: boolean; count: number; goal: number; rewardText: string; voucherCode?: string } | null = null
   const stampCardRows = await db`
     SELECT * FROM stamp_cards
     WHERE company_id = ${qt.company_id} AND active = true AND earn_mode = 'qr'
@@ -105,7 +106,7 @@ export async function POST(req: NextRequest) {
         INSERT INTO vouchers (membership_id, stamp_card_id, code, type, description, expires_at)
         VALUES (${membership.id}, ${card.id}, ${code}, 'stamp', ${card.reward_text}, ${expires.toISOString()})
       `
-      stampResult = { completed: true, count: 0, goal: card.goal, rewardText: card.reward_text }
+      stampResult = { completed: true, count: 0, goal: card.goal, rewardText: card.reward_text, voucherCode: code }
     } else {
       await db`
         UPDATE member_stamps SET count = ${newCount}, updated_at = now() WHERE id = ${stampRow.id}
@@ -118,6 +119,19 @@ export async function POST(req: NextRequest) {
   await db`
     UPDATE qr_tokens SET used_at = now(), used_by = ${membership.id} WHERE id = ${token}
   `
+
+  // Fire-and-forget notifications
+  if (stampResult?.completed) {
+    notify(normalised, qt.company_id, 'stamp_complete', {
+      rewardText:  stampResult.rewardText,
+      voucherCode: stampResult.voucherCode ?? undefined,
+    }).catch(() => {})
+  } else {
+    notify(normalised, qt.company_id, 'points_earned', {
+      points:  qt.points,
+      balance: newBalance,
+    }).catch(() => {})
+  }
 
   return NextResponse.json({
     success: true,

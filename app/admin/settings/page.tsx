@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import AdminShell from '@/components/AdminShell'
-import { Settings, Palette, Link, Save, Loader2, CheckCircle } from 'lucide-react'
+import { Settings, Palette, Link, Save, Loader2, CheckCircle, Bell, BellOff } from 'lucide-react'
 
 const APP_URL = typeof window !== 'undefined' ? window.location.origin : 'https://loyalty-platform-beta-ebon.vercel.app'
 
@@ -16,10 +16,13 @@ export default function SettingsPage() {
   const { authFetch } = useAuth()
   const [settings, setSettings] = useState<Record<string, any>>({})
   const [branding, setBranding] = useState({ slug: '', logo_url: '', primary_color: '#7c3aed' })
-  const [loading,  setLoading]  = useState(true)
-  const [saving,   setSaving]   = useState(false)
-  const [saved,    setSaved]    = useState(false)
-  const [error,    setError]    = useState('')
+  const [loading,      setLoading]      = useState(true)
+  const [saving,       setSaving]       = useState(false)
+  const [saved,        setSaved]        = useState(false)
+  const [error,        setError]        = useState('')
+  const [testPhone,    setTestPhone]    = useState('')
+  const [testSending,  setTestSending]  = useState(false)
+  const [testMsg,      setTestMsg]      = useState('')
 
   useEffect(() => {
     authFetch('/api/admin/settings')
@@ -30,6 +33,17 @@ export default function SettingsPage() {
       })
       .finally(() => setLoading(false))
   }, [])
+
+  async function sendTest() {
+    setTestSending(true); setTestMsg('')
+    const r = await authFetch('/api/admin/notifications/test', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: testPhone }),
+    })
+    const d = await r.json()
+    setTestMsg(r.ok ? 'Test message sent!' : (d.error || 'Failed'))
+    setTestSending(false)
+  }
 
   async function save() {
     setError(''); setSaving(true)
@@ -191,6 +205,71 @@ export default function SettingsPage() {
                   className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-violet-300" />
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* Notifications */}
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Bell size={16} className="text-violet-500" />
+            <p className="text-sm font-semibold text-gray-700">Notifications</p>
+            <span className="ml-auto text-xs text-gray-400">via Twilio WhatsApp / SMS</span>
+          </div>
+
+          {/* Channel */}
+          <div className="mb-4">
+            <label className="text-xs font-medium text-gray-600 block mb-2">Send via</label>
+            <div className="flex gap-2 bg-gray-50 p-1 rounded-xl">
+              {(['whatsapp', 'sms', 'both'] as const).map(c => (
+                <button key={c} onClick={() => setSettings(s => ({ ...s, notif_channel: c }))}
+                  className={'flex-1 py-2 rounded-lg text-xs font-medium transition-colors capitalize ' +
+                    (settings.notif_channel === c || (!settings.notif_channel && c === 'whatsapp') ? 'bg-white shadow-sm text-gray-800' : 'text-gray-400')}>
+                  {c}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Toggles */}
+          <div className="space-y-3">
+            {([
+              ['notif_welcome',        'Welcome message',       'When a new member registers'],
+              ['notif_points_earned',  'Points earned',         'After each QR scan or purchase'],
+              ['notif_stamp_complete', 'Stamp card complete',   'When a stamp card is finished'],
+              ['notif_voucher_created','Voucher created',       'When member redeems a reward'],
+              ['notif_expiry_warning', 'Expiry warning',        'When points are about to expire'],
+            ] as const).map(([key, label, desc]) => {
+              const enabled = settings[key] !== false
+              return (
+                <div key={key} className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm text-gray-700">{label}</p>
+                    <p className="text-xs text-gray-400">{desc}</p>
+                  </div>
+                  <button onClick={() => setSettings(s => ({ ...s, [key]: !enabled }))}
+                    className={'w-11 h-6 rounded-full transition-colors shrink-0 relative ' + (enabled ? 'bg-violet-500' : 'bg-gray-200')}>
+                    <span className={'absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ' + (enabled ? 'translate-x-5' : 'translate-x-0.5')} />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Test */}
+          <div className="mt-5 pt-4 border-t border-gray-50">
+            <p className="text-xs font-medium text-gray-500 mb-2">Send a test message</p>
+            <div className="flex gap-2">
+              <input value={testPhone} onChange={e => setTestPhone(e.target.value)}
+                placeholder="+60 12 345 6789" type="tel"
+                className="flex-1 px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-violet-300" />
+              <button onClick={sendTest} disabled={testSending || !testPhone.trim()}
+                className="px-4 py-2 rounded-xl text-white text-sm font-medium disabled:opacity-50 bg-violet-600 flex items-center gap-1.5">
+                {testSending ? <Loader2 size={14} className="animate-spin" /> : <Bell size={14} />}
+                Test
+              </button>
+            </div>
+            {testMsg && <p className={'text-xs mt-2 ' + (testMsg.includes('sent') ? 'text-emerald-600' : 'text-red-500')}>{testMsg}</p>}
+            <p className="text-xs text-gray-300 mt-2">Requires TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_WHATSAPP_FROM / TWILIO_SMS_FROM in Vercel env vars</p>
           </div>
         </div>
 
