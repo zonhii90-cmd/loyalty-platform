@@ -40,18 +40,17 @@ function buildMessage(type: NotifType, data: NotifData): string {
   }
 }
 
-async function sendTwilio(to: string, from: string, body: string): Promise<void> {
-  const sid   = process.env.TWILIO_ACCOUNT_SID!
-  const token = process.env.TWILIO_AUTH_TOKEN!
-  const auth  = Buffer.from(`${sid}:${token}`).toString('base64')
-  const res   = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+async function sendKapso(to: string, body: string): Promise<void> {
+  const apiKey      = process.env.KAPSO_API_KEY!
+  const phoneNumId  = process.env.KAPSO_PHONE_NUMBER_ID!
+  const res = await fetch(`https://api.kapso.ai/meta/whatsapp/${phoneNumId}/messages`, {
     method:  'POST',
-    headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-    body:    new URLSearchParams({ To: to, From: from, Body: body }).toString(),
+    headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ messaging_product: 'whatsapp', to, type: 'text', text: { body } }),
   })
   if (!res.ok) {
     const err = await res.text()
-    console.error('[notify] Twilio error:', err)
+    console.error('[notify] Kapso error:', err)
   }
 }
 
@@ -61,7 +60,7 @@ export async function notify(
   type:      NotifType,
   data:      NotifData = {},
 ): Promise<void> {
-  if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) return
+  if (!process.env.KAPSO_API_KEY || !process.env.KAPSO_PHONE_NUMBER_ID) return
 
   const db = sql()
   const [settingsRows, companyRows] = await Promise.all([
@@ -73,19 +72,13 @@ export async function notify(
   // Default: all notifications ON. Admin can turn each off.
   if (settings[`notif_${type}`] === false) return
 
-  const channel = (settings.notif_channel as string) || 'whatsapp'
   const message = buildMessage(type, { ...data, companyName: data.companyName || companyRows[0]?.name || '' })
   if (!message) return
 
   const e164 = toE164(phone)
 
   try {
-    if ((channel === 'whatsapp' || channel === 'both') && process.env.TWILIO_WHATSAPP_FROM) {
-      await sendTwilio(`whatsapp:${e164}`, process.env.TWILIO_WHATSAPP_FROM, message)
-    }
-    if ((channel === 'sms' || channel === 'both') && process.env.TWILIO_SMS_FROM) {
-      await sendTwilio(e164, process.env.TWILIO_SMS_FROM, message)
-    }
+    await sendKapso(e164, message)
   } catch (err) {
     console.error('[notify] send error:', err)
   }

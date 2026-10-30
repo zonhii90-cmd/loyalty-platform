@@ -12,14 +12,13 @@ function toE164(phone: string): string {
   return '+' + digits
 }
 
-async function sendTwilio(to: string, from: string, body: string): Promise<boolean> {
-  const sid   = process.env.TWILIO_ACCOUNT_SID!
-  const token = process.env.TWILIO_AUTH_TOKEN!
-  const auth  = Buffer.from(`${sid}:${token}`).toString('base64')
-  const res   = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+async function sendKapso(to: string, body: string): Promise<boolean> {
+  const apiKey     = process.env.KAPSO_API_KEY!
+  const phoneNumId = process.env.KAPSO_PHONE_NUMBER_ID!
+  const res = await fetch(`https://api.kapso.ai/meta/whatsapp/${phoneNumId}/messages`, {
     method:  'POST',
-    headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-    body:    new URLSearchParams({ To: to, From: from, Body: body }).toString(),
+    headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ messaging_product: 'whatsapp', to, type: 'text', text: { body } }),
   })
   return res.ok
 }
@@ -59,8 +58,8 @@ export async function POST(req: NextRequest) {
   const { message, segment = 'all' } = await req.json()
   if (!message?.trim()) return NextResponse.json({ error: 'message required' }, { status: 400 })
 
-  if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
-    return NextResponse.json({ error: 'Twilio not configured' }, { status: 500 })
+  if (!process.env.KAPSO_API_KEY || !process.env.KAPSO_PHONE_NUMBER_ID) {
+    return NextResponse.json({ error: 'Kapso not configured' }, { status: 500 })
   }
 
   const db = sql()
@@ -78,24 +77,15 @@ export async function POST(req: NextRequest) {
     `,
   ])
 
-  const settings      = settingsRows[0]?.data || {}
-  const companyName   = companyRows[0]?.name  || ''
-  const channel       = (settings.notif_channel as string) || 'whatsapp'
-  const whatsappFrom  = process.env.TWILIO_WHATSAPP_FROM
-  const smsFrom       = process.env.TWILIO_SMS_FROM
-  const text          = message.trim().replace(/\{company\}/g, companyName)
+  const companyName = companyRows[0]?.name || ''
+  const text        = message.trim().replace(/\{company\}/g, companyName)
 
   let sent = 0, failed = 0
   for (const row of members) {
     const e164 = toE164(row.phone as string)
     try {
-      if ((channel === 'whatsapp' || channel === 'both') && whatsappFrom) {
-        const ok = await sendTwilio(`whatsapp:${e164}`, whatsappFrom, text)
-        ok ? sent++ : failed++
-      } else if (smsFrom) {
-        const ok = await sendTwilio(e164, smsFrom, text)
-        ok ? sent++ : failed++
-      }
+      const ok = await sendKapso(e164, text)
+      ok ? sent++ : failed++
     } catch {
       failed++
     }
