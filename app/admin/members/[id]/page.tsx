@@ -29,7 +29,7 @@ const tierColor: Record<string, string> = {
 const srcLabel: Record<string, string> = {
   manual: 'Manual', feedback: 'Feedback', purchase: 'Purchase',
   birthday: 'Birthday', adjustment: 'Adjustment', referral: 'Referral',
-  qr_scan: 'QR Scan', stamp_redeem: 'Stamp', reward: 'Reward Redeem',
+  qr_scan: 'QR Scan', stamp_redeem: 'Stamp', reward: 'Reward', reward_redeem: 'Reward redeemed',
 }
 
 function MemberDetailInner() {

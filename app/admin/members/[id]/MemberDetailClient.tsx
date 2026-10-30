@@ -14,10 +14,22 @@ interface Membership {
   member: { id: string; phone: string; name: string|null; birthday: string|null }
 }
 
-const typeColor  = { earn: 'text-emerald-600', redeem: 'text-red-500', adjust: 'text-amber-500' }
+const typeColor = { earn: 'text-emerald-600', redeem: 'text-red-500', adjust: 'text-amber-500' }
+
+function relTime(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime()
+  const m = Math.floor(diff / 60000)
+  if (m < 60)  return m <= 1 ? 'Just now' : `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24)  return `${h}h ago`
+  const d = Math.floor(h / 24)
+  if (d < 30)  return `${d}d ago`
+  return new Date(iso).toLocaleDateString()
+}
 const srcLabel: Record<string, string> = {
   manual: 'Manual', feedback: 'Feedback', purchase: 'Purchase',
   birthday: 'Birthday', adjustment: 'Adjustment', referral: 'Referral',
+  qr_scan: 'QR Scan', stamp_redeem: 'Stamp reward', reward_redeem: 'Reward redeemed',
 }
 
 export default function MemberDetailClient() {
@@ -140,7 +152,7 @@ export default function MemberDetailClient() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-gray-700">{srcLabel[entry.source] || entry.source}</p>
                     {entry.note && <p className="text-xs text-gray-400 truncate">{entry.note}</p>}
-                    <p className="text-xs text-gray-300">{new Date(entry.created_at).toLocaleString()}</p>
+                    <p className="text-xs text-gray-300">{relTime(entry.created_at)}</p>
                   </div>
                   <p className={'text-base font-bold shrink-0 ' + typeColor[entry.type]}>
                     {entry.amount > 0 ? '+' : ''}{entry.amount}
