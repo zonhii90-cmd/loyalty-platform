@@ -205,28 +205,6 @@ export default function MemberPortalClient() {
               </div>
             )}
 
-            {ledger.length > 0 && (
-              <div className="bg-white rounded-3xl shadow-sm p-4 mb-4">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs font-medium text-gray-500">Recent Activity</p>
-                  <button onClick={() => setTab('history')} className="text-xs text-violet-600">See all →</button>
-                </div>
-                <div className="flex flex-col divide-y divide-gray-50">
-                  {ledger.slice(0, 5).map(entry => (
-                    <div key={entry.id} className="flex items-center gap-3 py-2.5">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-700">{srcLabel[entry.source] || entry.source}</p>
-                        <p className="text-xs text-gray-300">{new Date(entry.created_at).toLocaleDateString()}</p>
-                      </div>
-                      <p className={'text-base font-bold shrink-0 ' + (entry.amount > 0 ? 'text-emerald-600' : 'text-red-500')}>
-                        {entry.amount > 0 ? '+' : ''}{entry.amount}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Profile edit */}
             <div className="bg-white rounded-3xl shadow-sm p-4">
               <p className="text-xs font-medium text-gray-500 mb-3">My Profile</p>
