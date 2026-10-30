@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sql } from '@/lib/db'
 import { notify } from '@/lib/notify'
+import { authorizeCron } from '@/lib/cronAuth'
 
 export async function GET(req: NextRequest) {
-  if (req.nextUrl.searchParams.get('secret') !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  if (!authorizeCron(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const db = sql()
 

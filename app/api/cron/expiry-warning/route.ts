@@ -1,16 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sql } from '@/lib/db'
 import { notify } from '@/lib/notify'
-
-// Call this endpoint daily via Vercel Cron or an external scheduler
-// Add to vercel.json: { "crons": [{ "path": "/api/cron/expiry-warning", "schedule": "0 9 * * *" }] }
-// Secured by CRON_SECRET env var
+import { authorizeCron } from '@/lib/cronAuth'
 
 export async function GET(req: NextRequest) {
-  const secret = req.nextUrl.searchParams.get('secret')
-  if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  if (!authorizeCron(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const db = sql()
 
