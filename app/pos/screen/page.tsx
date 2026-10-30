@@ -3,9 +3,16 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useStaff } from '@/lib/staff-context'
-import { QrCode, Stamp, Search, LogOut, Loader2, Ticket, CheckCircle, XCircle } from 'lucide-react'
+import { QrCode, Stamp, Search, LogOut, Loader2, Ticket, CheckCircle, XCircle, BarChart2, Printer } from 'lucide-react'
 
-type Tab = 'qr' | 'stamp' | 'lookup' | 'redeem'
+type Tab = 'qr' | 'stamp' | 'lookup' | 'redeem' | 'dashboard'
+
+interface Receipt {
+  points: number
+  balance: number
+  name: string | null
+  companyName: string
+}
 
 export default function PosScreen() {
   const router = useRouter()
@@ -23,14 +30,24 @@ export default function PosScreen() {
   const [voucherCode, setVoucherCode] = useState('')
   const [voucherResult, setVoucherResult] = useState<{ success: boolean; message: string } | null>(null)
   const [voucherLoading, setVoucherLoading] = useState(false)
+  const [searchQ, setSearchQ] = useState('')
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [receipt, setReceipt] = useState<Receipt | null>(null)
+  const [dashStats, setDashStats] = useState<any>(null)
 
   useEffect(() => {
     if (!isLoggedIn) router.replace('/pos')
   }, [isLoggedIn])
 
+  useEffect(() => {
+    if (tab === 'dashboard') loadDashStats()
+  }, [tab])
+
   if (!isLoggedIn) return null
 
   const color = primaryColor || '#7c3aed'
+  const isManager = staffRole === 'manager'
 
   function staffHeaders() {
     let staffId = ''
@@ -43,7 +60,7 @@ export default function PosScreen() {
   }
 
   async function generateQr() {
-    setQrLoading(true); setQrData(null)
+    setQrLoading(true); setQrData(null); setReceipt(null)
     const body = earnType === 'fixed'
       ? { earnType, points: Number(points) }
       : { earnType, amount: Number(amount) }
@@ -66,8 +83,21 @@ export default function PosScreen() {
       body: JSON.stringify({ phone: phone.trim(), company_id: companyId }),
     })
     const d = await r.json()
-    if (r.ok) setMember({ ...d.membership, member: d.member, membershipId: d.membership?.id })
+    if (r.ok) setMember({ ...d.membership, member: d.member })
     setLookupLoading(false)
+  }
+
+  async function searchMembers() {
+    if (!searchQ.trim() || searchQ.length < 2) return
+    setSearchLoading(true); setSearchResults([])
+    let staffId = ''
+    try { staffId = JSON.parse(localStorage.getItem('lp_staff') || '{}').staffId || '' } catch {}
+    const r = await fetch('/api/members/search?q=' + encodeURIComponent(searchQ.trim()), {
+      headers: { 'x-staff-id': staffId, 'x-staff-company-id': companyId || '' },
+    })
+    const d = await r.json()
+    setSearchResults(d.results || [])
+    setSearchLoading(false)
   }
 
   async function addStamp() {
@@ -99,12 +129,23 @@ export default function PosScreen() {
     setVoucherLoading(false)
   }
 
-  const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: 'qr',     label: 'Generate QR', icon: <QrCode size={20} /> },
-    { id: 'stamp',  label: 'Add Stamp',   icon: <Stamp size={20} /> },
-    { id: 'lookup', label: 'Look up',     icon: <Search size={20} /> },
-    { id: 'redeem', label: 'Voucher',     icon: <Ticket size={20} /> },
+  async function loadDashStats() {
+    let staffId = ''
+    try { staffId = JSON.parse(localStorage.getItem('lp_staff') || '{}').staffId || '' } catch {}
+    const r = await fetch('/api/admin/stats', {
+      headers: { 'x-admin-token': staffId, 'x-company-id': companyId || '' },
+    })
+    if (r.ok) setDashStats(await r.json())
+  }
+
+  const allTabs: { id: Tab; label: string; icon: React.ReactNode; managerOnly?: boolean }[] = [
+    { id: 'qr',        label: 'Generate QR', icon: <QrCode size={20} /> },
+    { id: 'stamp',     label: 'Add Stamp',   icon: <Stamp size={20} /> },
+    { id: 'lookup',    label: 'Look up',     icon: <Search size={20} /> },
+    { id: 'redeem',    label: 'Voucher',     icon: <Ticket size={20} /> },
+    { id: 'dashboard', label: 'Dashboard',   icon: <BarChart2 size={20} />, managerOnly: true },
   ]
+  const tabs = allTabs.filter(t => !t.managerOnly || isManager)
 
   return (
     <div className="min-h-screen bg-[#F5F5F3] flex flex-col">
@@ -112,7 +153,7 @@ export default function PosScreen() {
       <header className="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between">
         <div>
           <p className="text-sm font-bold" style={{ color }}>{companyName}</p>
-          <p className="text-xs text-gray-400">{staffName}</p>
+          <p className="text-xs text-gray-400">{staffName}{isManager ? ' · Manager' : ''}</p>
         </div>
         <button onClick={() => { logout(); router.replace('/pos') }}
           className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-400 transition-colors">
@@ -142,7 +183,7 @@ export default function PosScreen() {
 
             <div className="flex gap-2 mb-4 bg-gray-50 p-1 rounded-xl">
               {(['fixed', 'purchase'] as const).map(t => (
-                <button key={t} onClick={() => { setEarnType(t); setQrData(null) }}
+                <button key={t} onClick={() => { setEarnType(t); setQrData(null); setReceipt(null) }}
                   className={'flex-1 py-2 rounded-lg text-xs font-medium transition-colors ' +
                     (earnType === t ? 'bg-white shadow-sm text-gray-800' : 'text-gray-400')}>
                   {t === 'fixed' ? 'Fixed Points' : 'By Amount'}
@@ -174,11 +215,29 @@ export default function PosScreen() {
               {qrLoading ? 'Generating...' : 'Generate QR Code'}
             </button>
 
-            {qrData && (
+            {qrData && !receipt && (
               <div className="mt-5 flex flex-col items-center">
                 <p className="text-xs text-gray-400 mb-3">Member scans this QR to earn points</p>
                 <img src={qrData} alt="QR Code" className="w-48 h-48 rounded-xl border border-gray-100" />
                 <p className="text-xs text-gray-300 mt-2">Expires in 5 minutes</p>
+              </div>
+            )}
+
+            {/* Receipt after scan */}
+            {receipt && (
+              <div className="mt-5 border border-dashed border-gray-200 rounded-2xl p-5 text-center" id="pos-receipt">
+                <p className="text-xs text-gray-400 font-medium">{receipt.companyName}</p>
+                <div className="my-4">
+                  <p className="text-xs text-gray-400">Points earned</p>
+                  <p className="text-4xl font-bold text-emerald-600 my-1">+{receipt.points}</p>
+                  <p className="text-sm text-gray-500">Balance: <span className="font-bold text-violet-600">{receipt.balance}</span> pts</p>
+                  {receipt.name && <p className="text-xs text-gray-400 mt-1">{receipt.name}</p>}
+                </div>
+                <p className="text-xs text-gray-300">{new Date().toLocaleString()}</p>
+                <button onClick={() => window.print()}
+                  className="mt-4 flex items-center gap-1.5 mx-auto text-xs text-gray-400 hover:text-gray-600">
+                  <Printer size={13} /> Print receipt
+                </button>
               </div>
             )}
           </div>
@@ -246,40 +305,121 @@ export default function PosScreen() {
           </div>
         )}
 
-        {/* Lookup */}
+        {/* Lookup (with name search) */}
         {tab === 'lookup' && (
-          <div className="bg-white rounded-2xl border border-gray-100 p-5">
-            <p className="text-xs font-medium text-gray-500 mb-4">Look Up Member</p>
-            <div className="flex gap-2 mb-4">
-              <input value={phone} onChange={e => setPhone(e.target.value)}
-                placeholder="Phone number" type="tel" inputMode="tel"
-                className="flex-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-violet-300" />
-              <button onClick={lookupMember} disabled={lookupLoading || !phone.trim()}
-                className="px-4 py-2.5 rounded-xl text-white text-sm font-medium disabled:opacity-50"
-                style={{ backgroundColor: color }}>
-                {lookupLoading ? <Loader2 size={16} className="animate-spin" /> : 'Find'}
-              </button>
-            </div>
-            {member && (
-              <div className="border-t border-gray-50 pt-3">
-                <p className="text-sm font-medium text-gray-800">{member.member?.name || phone}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{phone}</p>
-                <div className="grid grid-cols-2 gap-3 mt-4">
-                  <div className="bg-gray-50 rounded-xl p-3">
-                    <p className="text-xs text-gray-400">Points</p>
-                    <p className="text-xl font-bold text-gray-800">{member.points}</p>
-                  </div>
-                  <div className="bg-gray-50 rounded-xl p-3">
-                    <p className="text-xs text-gray-400">Stamps</p>
-                    <p className="text-xl font-bold text-gray-800">{member.stamps ?? '—'}</p>
+          <div className="space-y-3">
+            <div className="bg-white rounded-2xl border border-gray-100 p-5">
+              <p className="text-xs font-medium text-gray-500 mb-4">Search by Phone</p>
+              <div className="flex gap-2">
+                <input value={phone} onChange={e => setPhone(e.target.value)}
+                  placeholder="Phone number" type="tel" inputMode="tel"
+                  className="flex-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-violet-300" />
+                <button onClick={lookupMember} disabled={lookupLoading || !phone.trim()}
+                  className="px-4 py-2.5 rounded-xl text-white text-sm font-medium disabled:opacity-50"
+                  style={{ backgroundColor: color }}>
+                  {lookupLoading ? <Loader2 size={16} className="animate-spin" /> : 'Find'}
+                </button>
+              </div>
+              {member && (
+                <div className="border-t border-gray-50 pt-3 mt-3">
+                  <p className="text-sm font-medium text-gray-800">{member.member?.name || phone}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{phone}</p>
+                  <div className="grid grid-cols-2 gap-3 mt-4">
+                    <div className="bg-gray-50 rounded-xl p-3">
+                      <p className="text-xs text-gray-400">Points</p>
+                      <p className="text-xl font-bold text-gray-800">{member.points}</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-xl p-3">
+                      <p className="text-xs text-gray-400">Tier</p>
+                      <p className="text-xl font-bold text-gray-800 capitalize">{member.tier}</p>
+                    </div>
                   </div>
                 </div>
-                <p className="text-xs text-center text-gray-400 mt-3 capitalize">{member.tier} tier</p>
+              )}
+            </div>
+
+            <div className="bg-white rounded-2xl border border-gray-100 p-5">
+              <p className="text-xs font-medium text-gray-500 mb-4">Search by Name</p>
+              <div className="flex gap-2">
+                <input value={searchQ} onChange={e => setSearchQ(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && searchMembers()}
+                  placeholder="Customer name…"
+                  className="flex-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-violet-300" />
+                <button onClick={searchMembers} disabled={searchLoading || searchQ.length < 2}
+                  className="px-4 py-2.5 rounded-xl text-white text-sm font-medium disabled:opacity-50"
+                  style={{ backgroundColor: color }}>
+                  {searchLoading ? <Loader2 size={16} className="animate-spin" /> : 'Search'}
+                </button>
+              </div>
+              {searchResults.length > 0 && (
+                <div className="mt-3 divide-y divide-gray-50">
+                  {searchResults.map(r => (
+                    <div key={r.membership_id} className="py-2.5 flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">{r.name || r.phone}</p>
+                        <p className="text-xs text-gray-400">{r.phone}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-violet-600">{r.points} pts</p>
+                        <p className="text-xs text-gray-400 capitalize">{r.tier}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Manager dashboard */}
+        {tab === 'dashboard' && isManager && (
+          <div className="space-y-3">
+            <div className="bg-gradient-to-br from-violet-600 to-violet-700 rounded-2xl p-5 text-white">
+              <p className="text-xs font-medium text-violet-200 mb-3">Today</p>
+              {!dashStats ? (
+                <div className="flex justify-center py-4"><Loader2 size={20} className="animate-spin text-white/50" /></div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { label: 'New Members', value: dashStats.today?.newMembers ?? 0 },
+                    { label: 'QR Scans',    value: dashStats.today?.scans ?? 0 },
+                    { label: 'Points Out',  value: dashStats.today?.pointsEarned ?? 0 },
+                    { label: 'Vouchers',    value: dashStats.today?.vouchersRedeemed ?? 0 },
+                  ].map(t => (
+                    <div key={t.label} className="bg-white/10 rounded-xl p-3 text-center">
+                      <p className="text-2xl font-bold">{t.value}</p>
+                      <p className="text-xs text-violet-200 mt-0.5">{t.label}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            {dashStats && (
+              <div className="bg-white rounded-2xl border border-gray-100 p-4">
+                <p className="text-xs font-medium text-gray-500 mb-3">All-time</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-gray-50 rounded-xl p-3">
+                    <p className="text-xs text-gray-400">Members</p>
+                    <p className="text-2xl font-bold text-gray-800">{dashStats.totalMembers}</p>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-3">
+                    <p className="text-xs text-gray-400">Points Balance</p>
+                    <p className="text-2xl font-bold text-gray-800">{dashStats.totalPointsBalance?.toLocaleString()}</p>
+                  </div>
+                </div>
               </div>
             )}
           </div>
         )}
       </div>
+
+      {/* Print styles */}
+      <style>{`
+        @media print {
+          body > *:not(#pos-receipt) { display: none !important; }
+          #pos-receipt { display: block !important; border: none; margin: 0; padding: 20px; }
+        }
+      `}</style>
     </div>
   )
 }

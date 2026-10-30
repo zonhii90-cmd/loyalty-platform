@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import AdminShell from '@/components/AdminShell'
+import { Upload, X, Loader2, CheckCircle } from 'lucide-react'
 
 interface MemberRow {
   id: string; points: number; tier: string; joined_at: string
@@ -19,12 +20,30 @@ const tierColor: Record<string, string> = {
 export default function MembersPage() {
   const { authFetch } = useAuth()
   const router = useRouter()
-  const [rows,    setRows]    = useState<MemberRow[]>([])
-  const [total,   setTotal]   = useState(0)
-  const [page,    setPage]    = useState(1)
-  const [q,       setQ]       = useState('')
-  const [inputQ,  setInputQ]  = useState('')
-  const [loading, setLoading] = useState(true)
+  const [rows,       setRows]       = useState<MemberRow[]>([])
+  const [total,      setTotal]      = useState(0)
+  const [page,       setPage]       = useState(1)
+  const [q,          setQ]          = useState('')
+  const [inputQ,     setInputQ]     = useState('')
+  const [loading,    setLoading]    = useState(true)
+  const [showImport, setShowImport] = useState(false)
+  const [importing,  setImporting]  = useState(false)
+  const [importResult, setImportResult] = useState<{ imported: number; skipped: number; errors: string[] } | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  async function importCsv(file: File) {
+    setImporting(true); setImportResult(null)
+    const text = await file.text()
+    const r = await authFetch('/api/admin/members/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: text,
+    })
+    const d = await r.json()
+    setImportResult(d)
+    setImporting(false)
+    if (r.ok) { setPage(1); setQ('') }
+  }
 
   useEffect(() => {
     setLoading(true)
@@ -43,8 +62,42 @@ export default function MembersPage() {
       <div className="max-w-2xl mx-auto">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-bold text-gray-800">Members</h1>
-          <span className="text-sm text-gray-400">{total} total</span>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-400">{total} total</span>
+            <button onClick={() => { setShowImport(v => !v); setImportResult(null) }}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-xs text-gray-500 hover:bg-gray-50">
+              <Upload size={13} /> Import CSV
+            </button>
+          </div>
         </div>
+
+        {showImport && (
+          <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-medium text-gray-500">Bulk Import Members</p>
+              <button onClick={() => setShowImport(false)}><X size={14} className="text-gray-300" /></button>
+            </div>
+            <p className="text-xs text-gray-400 mb-3">CSV format: <code className="bg-gray-50 px-1 rounded">phone, name (optional), points (optional)</code></p>
+            <input ref={fileRef} type="file" accept=".csv,text/csv,text/plain" className="hidden"
+              onChange={e => { if (e.target.files?.[0]) importCsv(e.target.files[0]) }} />
+            <button onClick={() => fileRef.current?.click()} disabled={importing}
+              className="w-full py-8 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-400 hover:border-violet-300 hover:text-violet-500 transition-colors flex flex-col items-center gap-2 disabled:opacity-50">
+              {importing ? <Loader2 size={22} className="animate-spin text-violet-400" /> : <Upload size={22} />}
+              {importing ? 'Importing…' : 'Click to choose CSV file'}
+            </button>
+            {importResult && (
+              <div className={'mt-3 p-3 rounded-xl text-sm ' + (importResult.errors.length ? 'bg-amber-50' : 'bg-emerald-50')}>
+                <div className="flex items-center gap-2">
+                  <CheckCircle size={14} className="text-emerald-500" />
+                  <p className="font-medium text-gray-700">{importResult.imported} imported, {importResult.skipped} skipped</p>
+                </div>
+                {importResult.errors.length > 0 && (
+                  <p className="text-xs text-amber-600 mt-1">Failed: {importResult.errors.join(', ')}</p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4 flex gap-2">
           <input

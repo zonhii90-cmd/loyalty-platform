@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useEffect, useState } from 'react'
 import {
   LayoutDashboard, Star, Users, Settings, Building2,
-  LogOut, MoreHorizontal, UserCog, Stamp, Gift, BarChart2,
+  LogOut, MoreHorizontal, UserCog, Stamp, Gift, BarChart2, Zap, MapPin,
 } from 'lucide-react'
 
 type NavItem = { href: string; label: string; icon: React.ReactNode }
@@ -23,10 +23,12 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   ]
 
   const moreNav: NavItem[] = [
-    { href: '/admin/rewards',     label: 'Rewards',     icon: <Gift size={18} /> },
-    { href: '/admin/staff',       label: 'Staff',       icon: <UserCog size={18} /> },
-    { href: '/admin/stamp-card',  label: 'Stamp Card',  icon: <Stamp size={18} /> },
-    { href: '/admin/settings',    label: 'Settings',    icon: <Settings size={18} /> },
+    { href: '/admin/rewards',    label: 'Rewards',    icon: <Gift size={18} /> },
+    { href: '/admin/campaigns',  label: 'Campaigns',  icon: <Zap size={18} /> },
+    { href: '/admin/staff',      label: 'Staff',      icon: <UserCog size={18} /> },
+    { href: '/admin/stamp-card', label: 'Stamp Card', icon: <Stamp size={18} /> },
+    { href: '/admin/branches',   label: 'Branches',   icon: <MapPin size={18} /> },
+    { href: '/admin/settings',   label: 'Settings',   icon: <Settings size={18} /> },
     ...(isSuperAdmin
       ? [{ href: '/admin/companies', label: 'Companies', icon: <Building2 size={18} /> }]
       : []
@@ -39,8 +41,10 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     { href: '/admin/members',    label: 'Members',    icon: <Star size={18} /> },
     { href: '/admin/analytics',  label: 'Analytics',  icon: <BarChart2 size={18} /> },
     { href: '/admin/rewards',    label: 'Rewards',    icon: <Gift size={18} /> },
+    { href: '/admin/campaigns',  label: 'Campaigns',  icon: <Zap size={18} /> },
     { href: '/admin/staff',      label: 'Staff',      icon: <UserCog size={18} /> },
     { href: '/admin/stamp-card', label: 'Stamp Card', icon: <Stamp size={18} /> },
+    { href: '/admin/branches',   label: 'Branches',   icon: <MapPin size={18} /> },
     { href: '/admin/settings',   label: 'Settings',   icon: <Settings size={18} /> },
   ]
 

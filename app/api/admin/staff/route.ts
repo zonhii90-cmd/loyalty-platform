@@ -9,9 +9,12 @@ export async function GET(req: NextRequest) {
 
   const db = sql()
   const rows = await db`
-    SELECT id, name, role, active, created_at FROM staff
-    WHERE company_id = ${auth.companyId}
-    ORDER BY created_at ASC
+    SELECT s.id, s.name, s.role, s.active, s.created_at,
+           s.branch_id, b.name AS branch_name
+    FROM staff s
+    LEFT JOIN branches b ON b.id = s.branch_id
+    WHERE s.company_id = ${auth.companyId}
+    ORDER BY s.created_at ASC
   `
   return NextResponse.json({ staff: rows })
 }
@@ -20,7 +23,7 @@ export async function POST(req: NextRequest) {
   const auth = await validateAdmin(req)
   if (!auth) return unauthorized()
 
-  const { name, pin, role } = await req.json()
+  const { name, pin, role, branch_id } = await req.json()
   if (!name?.trim() || !pin || !/^\d{4}$/.test(pin)) {
     return NextResponse.json({ error: 'name and 4-digit PIN required' }, { status: 400 })
   }
@@ -31,9 +34,9 @@ export async function POST(req: NextRequest) {
   const pinHash = await createPinHash(pin)
   const db = sql()
   const rows = await db`
-    INSERT INTO staff (company_id, name, pin, role)
-    VALUES (${auth.companyId}, ${name.trim()}, ${pinHash}, ${role || 'cashier'})
-    RETURNING id, name, role, active, created_at
+    INSERT INTO staff (company_id, name, pin, role, branch_id)
+    VALUES (${auth.companyId}, ${name.trim()}, ${pinHash}, ${role || 'cashier'}, ${branch_id || null})
+    RETURNING id, name, role, active, created_at, branch_id
   `
   return NextResponse.json({ staff: rows[0] }, { status: 201 })
 }

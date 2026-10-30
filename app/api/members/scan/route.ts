@@ -54,12 +54,26 @@ export async function POST(req: NextRequest) {
     isNew = true
   }
 
-  const newBalance = membership.points + qt.points
+  // Check for active campaign multiplier
+  const campaignRows = await db`
+    SELECT multiplier, name FROM campaigns
+    WHERE company_id = ${qt.company_id}
+      AND active = true
+      AND starts_at <= now()
+      AND ends_at   >= now()
+    ORDER BY multiplier DESC
+    LIMIT 1
+  `
+  const multiplier = campaignRows[0] ? parseFloat(campaignRows[0].multiplier) : 1
+  const awardedPoints = Math.round(qt.points * multiplier)
+  const campaignNote = campaignRows[0] ? `QR scan · ${campaignRows[0].name} (${multiplier}×)` : 'QR scan'
+
+  const newBalance = membership.points + awardedPoints
 
   // Credit points + update last_activity_at
   await db`
     INSERT INTO points_ledger (membership_id, type, amount, source, note, staff_id)
-    VALUES (${membership.id}, 'earn', ${qt.points}, 'qr_scan', ${'QR scan'}, ${qt.staff_id || null})
+    VALUES (${membership.id}, 'earn', ${awardedPoints}, 'qr_scan', ${campaignNote}, ${qt.staff_id || null})
   `
   await db`
     UPDATE memberships
@@ -128,14 +142,14 @@ export async function POST(req: NextRequest) {
     }).catch(() => {})
   } else {
     notify(normalised, qt.company_id, 'points_earned', {
-      points:  qt.points,
+      points:  awardedPoints,
       balance: newBalance,
     }).catch(() => {})
   }
 
   return NextResponse.json({
     success: true,
-    points: qt.points,
+    points: awardedPoints,
     balance: newBalance,
     isNew,
     stamp: stampResult,
