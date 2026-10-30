@@ -30,16 +30,17 @@ const srcLabel: Record<string, string> = {
 }
 
 export default function DashboardPage() {
-  const { authFetch, companyName } = useAuth()
+  const { authFetch, companyName, token } = useAuth()
   const [stats,   setStats]   = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!token) return
     authFetch('/api/admin/stats')
-      .then(r => r.json())
-      .then(setStats)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.today) setStats(data) })
       .finally(() => setLoading(false))
-  }, [])
+  }, [token])
 
   return (
     <AdminShell>

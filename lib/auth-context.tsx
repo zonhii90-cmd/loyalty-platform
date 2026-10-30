@@ -7,6 +7,7 @@ interface AuthCtx {
   companyId: string
   companyName: string
   isSuperAdmin: boolean
+  isReady: boolean
   login: (companyId: string, token: string, name: string) => void
   logout: () => void
   authFetch: (url: string, init?: RequestInit) => Promise<Response>
@@ -18,6 +19,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token,       setToken]       = useState('')
   const [companyId,   setCompanyId]   = useState('')
   const [companyName, setCompanyName] = useState('')
+  const [isReady,     setIsReady]     = useState(false)
 
   useEffect(() => {
     try {
@@ -27,6 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setToken(p.token); setCompanyId(p.companyId); setCompanyName(p.companyName || '')
       }
     } catch {}
+    setIsReady(true)
   }, [])
 
   function login(cid: string, tok: string, name: string) {
@@ -52,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <Ctx.Provider value={{ token, companyId, companyName, isSuperAdmin: companyId === 'super', login, logout, authFetch }}>
+    <Ctx.Provider value={{ token, companyId, companyName, isSuperAdmin: companyId === 'super', isReady, login, logout, authFetch }}>
       {children}
     </Ctx.Provider>
   )

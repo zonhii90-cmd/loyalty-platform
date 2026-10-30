@@ -11,7 +11,7 @@ import {
 type NavItem = { href: string; label: string; icon: React.ReactNode }
 
 export default function AdminShell({ children }: { children: React.ReactNode }) {
-  const { token, logout, companyName, isSuperAdmin } = useAuth()
+  const { token, logout, companyName, isSuperAdmin, isReady } = useAuth()
   const pathname = usePathname()
   const router   = useRouter()
   const [showMore, setShowMore] = useState(false)
@@ -50,9 +50,10 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     { href: '/admin/settings',   label: 'Settings',   icon: <Settings size={18} /> },
   ]
 
-  useEffect(() => { if (!token) router.replace('/admin/login') }, [token])
+  useEffect(() => { if (isReady && !token) router.replace('/admin/login') }, [isReady, token])
   useEffect(() => { setShowMore(false) }, [pathname])
 
+  if (!isReady) return null
   if (!token) return null
 
   return (
