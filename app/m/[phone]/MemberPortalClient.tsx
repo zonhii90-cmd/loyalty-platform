@@ -7,10 +7,15 @@ interface LedgerEntry {
   id: string; type: 'earn'|'redeem'|'adjust'; amount: number
   source: string; note: string|null; created_at: string
 }
+interface StampProgress {
+  count: number; completed_count: number
+  goal: number; reward_text: string; earn_mode: string
+}
 interface PortalData {
   member: { phone: string; name: string|null }
   membership: { id: string; points: number; tier: string; joined_at: string }
   ledger: LedgerEntry[]
+  stamp: StampProgress | null
 }
 
 const srcLabel: Record<string, string> = {
@@ -45,9 +50,13 @@ export default function MemberPortalClient() {
       .then(r => r.json())
       .then(async d => {
         if (d.error) { setErr(d.error); return }
-        const ledgerRes = await fetch('/api/members/' + d.membership.id + '/ledger')
+        const [ledgerRes, stampRes] = await Promise.all([
+          fetch('/api/members/' + d.membership.id + '/ledger'),
+          fetch('/api/members/' + d.membership.id + '/stamps'),
+        ])
         const ledgerData = await ledgerRes.json()
-        setData({ member: d.member, membership: d.membership, ledger: ledgerData.ledger || [] })
+        const stampData  = await stampRes.json()
+        setData({ member: d.member, membership: d.membership, ledger: ledgerData.ledger || [], stamp: stampData.stamp || null })
       })
       .catch(() => setErr('Network error'))
       .finally(() => setLoading(false))
@@ -68,7 +77,7 @@ export default function MemberPortalClient() {
     </div>
   )
 
-  const { member, membership, ledger } = data
+  const { member, membership, ledger, stamp } = data
   const grad = tierGrad[membership.tier] || tierGrad.bronze
 
   return (
@@ -94,6 +103,29 @@ export default function MemberPortalClient() {
             Member since {new Date(membership.joined_at).toLocaleDateString()}
           </p>
         </div>
+
+        {stamp && (
+          <div className="bg-white rounded-3xl shadow-sm p-4 mb-4">
+            <p className="text-xs font-medium text-gray-500 mb-3">Stamp Card</p>
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {Array.from({ length: stamp.goal }).map((_, i) => (
+                <div key={i} className={'w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs ' +
+                  (i < stamp.count ? 'bg-violet-500 border-violet-500 text-white' : 'border-gray-200 text-gray-300')}>
+                  {i < stamp.count ? '✓' : ''}
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-gray-400">
+              <span className="font-semibold text-violet-600">{stamp.count}</span>/{stamp.goal} stamps ·{' '}
+              {stamp.goal - stamp.count > 0
+                ? <>{stamp.goal - stamp.count} more for <span className="font-medium text-gray-600">{stamp.reward_text}</span></>
+                : 'Card complete!'}
+            </p>
+            {stamp.completed_count > 0 && (
+              <p className="text-xs text-gray-300 mt-1">Completed {stamp.completed_count}× before</p>
+            )}
+          </div>
+        )}
 
         <div className="bg-white rounded-3xl shadow-sm p-4">
           <p className="text-xs font-medium text-gray-500 mb-3">Points History</p>
