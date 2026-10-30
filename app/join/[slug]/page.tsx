@@ -21,7 +21,8 @@ interface MemberData {
 
 const srcLabel: Record<string, string> = {
   manual: 'Adjustment', feedback: 'Feedback reward', purchase: 'Purchase',
-  birthday: 'Birthday bonus', referral: 'Referral', qr_scan: 'QR Scan', stamp_redeem: 'Stamp reward',
+  birthday: 'Birthday bonus', referral: 'Referral', qr_scan: 'QR Scan',
+  stamp_redeem: 'Stamp reward', reward_redeem: 'Reward redeemed',
 }
 
 const tierGrad: Record<string, string> = {

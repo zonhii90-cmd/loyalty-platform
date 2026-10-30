@@ -30,7 +30,7 @@ interface PortalData {
 const srcLabel: Record<string, string> = {
   manual: 'Manual adjustment', feedback: 'Feedback reward', purchase: 'Purchase reward',
   birthday: 'Birthday bonus', adjustment: 'Adjustment', referral: 'Referral bonus',
-  qr_scan: 'QR Scan', stamp_redeem: 'Stamp reward',
+  qr_scan: 'QR Scan', stamp_redeem: 'Stamp reward', reward_redeem: 'Reward redeemed',
 }
 
 const tierGrad: Record<string, string> = {

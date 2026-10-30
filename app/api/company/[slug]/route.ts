@@ -8,7 +8,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
   const rows = await db`
     SELECT id, name, slug, logo_url, primary_color
     FROM companies
-    WHERE slug = ${slug} AND active = true
+    WHERE slug = ${slug}
     LIMIT 1
   `
   if (!rows[0]) return NextResponse.json({ error: 'Not found' }, { status: 404 })

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import AdminShell from '@/components/AdminShell'
-import { Settings, Palette, Link, Save, Loader2, CheckCircle, Bell, BellOff } from 'lucide-react'
+import { Settings, Palette, Link, Save, Loader2, CheckCircle, Bell, BellOff, Lock } from 'lucide-react'
 
 const APP_URL = typeof window !== 'undefined' ? window.location.origin : 'https://loyalty-platform-beta-ebon.vercel.app'
 
@@ -23,6 +23,11 @@ export default function SettingsPage() {
   const [testPhone,    setTestPhone]    = useState('')
   const [testSending,  setTestSending]  = useState(false)
   const [testMsg,      setTestMsg]      = useState('')
+  const [pwCurrent,    setPwCurrent]    = useState('')
+  const [pwNew,        setPwNew]        = useState('')
+  const [pwConfirm,    setPwConfirm]    = useState('')
+  const [pwSaving,     setPwSaving]     = useState(false)
+  const [pwMsg,        setPwMsg]        = useState('')
 
   useEffect(() => {
     authFetch('/api/admin/settings')
@@ -33,6 +38,25 @@ export default function SettingsPage() {
       })
       .finally(() => setLoading(false))
   }, [])
+
+  async function changePassword() {
+    if (!pwCurrent || !pwNew || pwNew !== pwConfirm) {
+      setPwMsg(pwNew !== pwConfirm ? 'New passwords do not match' : 'All fields required')
+      return
+    }
+    if (pwNew.length < 6) { setPwMsg('Password must be at least 6 characters'); return }
+    setPwSaving(true); setPwMsg('')
+    const r = await authFetch('/api/admin/settings/password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ current: pwCurrent, newPassword: pwNew }),
+    })
+    const d = await r.json()
+    setPwSaving(false)
+    if (!r.ok) { setPwMsg(d.error || 'Failed'); return }
+    setPwMsg('Password updated!'); setPwCurrent(''); setPwNew(''); setPwConfirm('')
+    setTimeout(() => setPwMsg(''), 3000)
+  }
 
   async function sendTest() {
     setTestSending(true); setTestMsg('')
@@ -250,7 +274,7 @@ export default function SettingsPage() {
           <div className="flex items-center gap-2 mb-4">
             <Bell size={16} className="text-violet-500" />
             <p className="text-sm font-semibold text-gray-700">Notifications</p>
-            <span className="ml-auto text-xs text-gray-400">via Twilio WhatsApp / SMS</span>
+            <span className="ml-auto text-xs text-gray-400">via Kapso WhatsApp</span>
           </div>
 
           {/* Channel */}
@@ -306,7 +330,31 @@ export default function SettingsPage() {
               </button>
             </div>
             {testMsg && <p className={'text-xs mt-2 ' + (testMsg.includes('sent') ? 'text-emerald-600' : 'text-red-500')}>{testMsg}</p>}
-            <p className="text-xs text-gray-300 mt-2">Requires TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_WHATSAPP_FROM / TWILIO_SMS_FROM in Vercel env vars</p>
+            <p className="text-xs text-gray-300 mt-2">Requires KAPSO_API_KEY and KAPSO_PHONE_NUMBER_ID in Vercel env vars</p>
+          </div>
+        </div>
+
+        {/* Change Password */}
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Lock size={16} className="text-violet-500" />
+            <p className="text-sm font-semibold text-gray-700">Change Password</p>
+          </div>
+          <div className="space-y-3">
+            <input type="password" value={pwCurrent} onChange={e => setPwCurrent(e.target.value)}
+              placeholder="Current password"
+              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-violet-300" />
+            <input type="password" value={pwNew} onChange={e => setPwNew(e.target.value)}
+              placeholder="New password (min 6 chars)"
+              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-violet-300" />
+            <input type="password" value={pwConfirm} onChange={e => setPwConfirm(e.target.value)}
+              placeholder="Confirm new password"
+              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-violet-300" />
+            {pwMsg && <p className={'text-xs ' + (pwMsg.includes('updated') ? 'text-emerald-600' : 'text-red-500')}>{pwMsg}</p>}
+            <button onClick={changePassword} disabled={pwSaving}
+              className="w-full py-2.5 rounded-xl bg-gray-800 text-white text-sm font-medium disabled:opacity-40">
+              {pwSaving ? 'Updating…' : 'Update Password'}
+            </button>
           </div>
         </div>
 
