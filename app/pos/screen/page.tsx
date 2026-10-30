@@ -29,18 +29,24 @@ export default function PosScreen() {
 
   const color = primaryColor || '#7c3aed'
 
+  function staffHeaders() {
+    let staffId = ''
+    try { staffId = JSON.parse(localStorage.getItem('lp_staff') || '{}').staffId || '' } catch {}
+    return {
+      'Content-Type': 'application/json',
+      'x-staff-id': staffId,
+      'x-staff-company-id': companyId || '',
+    }
+  }
+
   async function generateQr() {
     setQrLoading(true); setQrData(null)
     const body = earnType === 'fixed'
-      ? { earnType, points: Number(points), companyId }
-      : { earnType, amount: Number(amount), companyId }
+      ? { earnType, points: Number(points) }
+      : { earnType, amount: Number(amount) }
     const r = await fetch('/api/pos/qr/generate', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-staff-id': useStaffId(),
-        'x-staff-company-id': companyId || '',
-      },
+      headers: staffHeaders(),
       body: JSON.stringify(body),
     })
     const d = await r.json()
@@ -48,24 +54,16 @@ export default function PosScreen() {
     setQrLoading(false)
   }
 
-  function useStaffId() {
-    try { return JSON.parse(localStorage.getItem('lp_staff') || '{}').staffId || '' } catch { return '' }
-  }
-
   async function lookupMember() {
     if (!phone.trim()) return
     setLookupLoading(true); setMember(null)
     const r = await fetch('/api/members/lookup', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-staff-id': useStaffId(),
-        'x-staff-company-id': companyId || '',
-      },
-      body: JSON.stringify({ phone: phone.trim(), companyId }),
+      headers: staffHeaders(),
+      body: JSON.stringify({ phone: phone.trim(), company_id: companyId }),
     })
     const d = await r.json()
-    if (r.ok) setMember(d)
+    if (r.ok) setMember({ ...d.membership, member: d.member, membershipId: d.membership?.id })
     setLookupLoading(false)
   }
 
@@ -74,12 +72,8 @@ export default function PosScreen() {
     setStampMsg('')
     const r = await fetch('/api/pos/stamp/add', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-staff-id': useStaffId(),
-        'x-staff-company-id': companyId || '',
-      },
-      body: JSON.stringify({ membershipId: member.membershipId }),
+      headers: staffHeaders(),
+      body: JSON.stringify({ membershipId: member.id }),
     })
     const d = await r.json()
     setStampMsg(d.message || (r.ok ? 'Stamp added!' : d.error || 'Error'))
@@ -189,7 +183,7 @@ export default function PosScreen() {
                 <div className="flex items-center justify-between py-3 border-t border-gray-50">
                   <div>
                     <p className="text-sm font-medium text-gray-800">{member.member?.name || phone}</p>
-                    <p className="text-xs text-gray-400">{member.points} pts · {member.stamps ?? 0} stamps</p>
+                    <p className="text-xs text-gray-400">{member.points ?? 0} pts</p>
                   </div>
                   <button onClick={addStamp}
                     className="px-4 py-2 rounded-xl text-white text-sm font-medium"
