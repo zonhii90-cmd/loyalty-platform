@@ -41,14 +41,9 @@ export default function StampCardVisual({
   const emptyBg    = card_bg === 'dark' ? '#1e293b' : '#F3F4F6'
   const emptyColor = card_bg === 'dark' ? '#475569' : '#9CA3AF'
 
-  const stampSize = compact ? 'w-8 h-8 text-sm' : 'w-10 h-10 text-base'
-  const rowGap    = compact ? 'gap-1.5' : 'gap-2'
-  const pad       = compact ? 'p-3' : 'p-5'
-
-  const rows: number[][] = []
-  for (let i = 0; i < goal; i += 5) {
-    rows.push(Array.from({ length: Math.min(5, goal - i) }, (_, j) => i + j))
-  }
+  const gridGap = compact ? 'gap-1.5' : 'gap-2'
+  const pad     = compact ? 'p-3' : 'p-5'
+  const iconSize = compact ? 'text-sm' : 'text-base'
 
   const borderColor = isComplete ? `${accent_color}55` : card_bg === 'dark' ? '#1e293b' : '#F3F4F6'
 
@@ -107,28 +102,24 @@ export default function StampCardVisual({
           </div>
         )}
 
-        {/* STAMP GRID */}
-        <div className={`flex flex-col ${compact ? 'gap-1.5' : 'gap-2'} ${isComplete ? '' : 'mb-3'}`}>
-          {rows.map((row, ri) => (
-            <div key={ri} className={`flex ${rowGap}`}>
-              {row.map(i => {
-                const earned = i < count
-                const isNew  = newStampIndex !== null && i === newStampIndex
-                return (
-                  <div
-                    key={isNew ? `s-${i}-${animKey}` : `s-${i}`}
-                    className={`${stampSize} rounded-full flex items-center justify-center font-bold shrink-0 select-none ${isNew ? 'stamp-new' : ''}`}
-                    style={{
-                      backgroundColor: earned ? accent_color : emptyBg,
-                      color: earned ? '#fff' : emptyColor,
-                    }}
-                  >
-                    {stamp_icon}
-                  </div>
-                )
-              })}
-            </div>
-          ))}
+        {/* STAMP GRID — 5 columns, fills full width */}
+        <div className={`grid grid-cols-5 ${gridGap} ${isComplete ? '' : 'mb-3'}`}>
+          {Array.from({ length: goal }).map((_, i) => {
+            const earned = i < count
+            const isNew  = newStampIndex !== null && i === newStampIndex
+            return (
+              <div
+                key={isNew ? `s-${i}-${animKey}` : `s-${i}`}
+                className={`aspect-square rounded-full flex items-center justify-center font-bold select-none ${iconSize} ${isNew ? 'stamp-new' : ''}`}
+                style={{
+                  backgroundColor: earned ? accent_color : emptyBg,
+                  color: earned ? '#fff' : emptyColor,
+                }}
+              >
+                {stamp_icon}
+              </div>
+            )
+          })}
         </div>
 
         {/* PROGRESS TEXT */}
