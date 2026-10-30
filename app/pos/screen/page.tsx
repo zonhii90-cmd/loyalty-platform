@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useStaff } from '@/lib/staff-context'
-import { QrCode, Stamp, Search, LogOut, Loader2 } from 'lucide-react'
+import { QrCode, Stamp, Search, LogOut, Loader2, Ticket, CheckCircle, XCircle } from 'lucide-react'
 
-type Tab = 'qr' | 'stamp' | 'lookup'
+type Tab = 'qr' | 'stamp' | 'lookup' | 'redeem'
 
 export default function PosScreen() {
   const router = useRouter()
@@ -19,7 +19,10 @@ export default function PosScreen() {
   const [phone, setPhone]   = useState('')
   const [member, setMember] = useState<any>(null)
   const [lookupLoading, setLookupLoading] = useState(false)
-  const [stampMsg, setStampMsg] = useState('')
+  const [stampMsg, setStampMsg]   = useState('')
+  const [voucherCode, setVoucherCode] = useState('')
+  const [voucherResult, setVoucherResult] = useState<{ success: boolean; message: string } | null>(null)
+  const [voucherLoading, setVoucherLoading] = useState(false)
 
   useEffect(() => {
     if (!isLoggedIn) router.replace('/pos')
@@ -80,10 +83,27 @@ export default function PosScreen() {
     if (r.ok) lookupMember()
   }
 
+  async function redeemVoucher() {
+    if (!voucherCode.trim()) return
+    setVoucherLoading(true); setVoucherResult(null)
+    const r = await fetch(`/api/admin/vouchers/${voucherCode.trim().toUpperCase()}/redeem`, {
+      method: 'POST',
+      headers: staffHeaders(),
+    })
+    const d = await r.json()
+    setVoucherResult({
+      success: r.ok,
+      message: r.ok ? `✓ Redeemed: ${d.voucher?.description || voucherCode}` : (d.error || 'Failed'),
+    })
+    if (r.ok) setVoucherCode('')
+    setVoucherLoading(false)
+  }
+
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: 'qr',     label: 'Generate QR', icon: <QrCode size={20} /> },
     { id: 'stamp',  label: 'Add Stamp',   icon: <Stamp size={20} /> },
     { id: 'lookup', label: 'Look up',     icon: <Search size={20} /> },
+    { id: 'redeem', label: 'Voucher',     icon: <Ticket size={20} /> },
   ]
 
   return (
@@ -194,6 +214,35 @@ export default function PosScreen() {
                 {stampMsg && <p className="text-xs text-center mt-2 text-violet-600">{stampMsg}</p>}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Redeem voucher */}
+        {tab === 'redeem' && (
+          <div className="bg-white rounded-2xl border border-gray-100 p-5">
+            <p className="text-xs font-medium text-gray-500 mb-4">Redeem Voucher</p>
+            <div className="flex gap-2 mb-4">
+              <input value={voucherCode} onChange={e => { setVoucherCode(e.target.value.toUpperCase()); setVoucherResult(null) }}
+                placeholder="Voucher code" autoCapitalize="characters"
+                className="flex-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-violet-300 font-mono tracking-wider uppercase"
+                onKeyDown={e => e.key === 'Enter' && redeemVoucher()} />
+              <button onClick={redeemVoucher} disabled={voucherLoading || !voucherCode.trim()}
+                className="px-4 py-2.5 rounded-xl text-white text-sm font-medium disabled:opacity-50"
+                style={{ backgroundColor: color }}>
+                {voucherLoading ? <Loader2 size={16} className="animate-spin" /> : 'Apply'}
+              </button>
+            </div>
+            {voucherResult && (
+              <div className={'flex items-start gap-2 p-3 rounded-xl ' + (voucherResult.success ? 'bg-emerald-50' : 'bg-red-50')}>
+                {voucherResult.success
+                  ? <CheckCircle size={16} className="text-emerald-500 shrink-0 mt-0.5" />
+                  : <XCircle size={16} className="text-red-400 shrink-0 mt-0.5" />}
+                <p className={'text-sm ' + (voucherResult.success ? 'text-emerald-700' : 'text-red-500')}>
+                  {voucherResult.message}
+                </p>
+              </div>
+            )}
+            <p className="text-xs text-gray-300 mt-4 text-center">Ask member to show the code from their portal</p>
           </div>
         )}
 
