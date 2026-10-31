@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import AdminShell from '@/components/AdminShell'
-import { Settings, Palette, Link, Save, Loader2, CheckCircle, Bell, BellOff, Lock } from 'lucide-react'
+import { Settings, Palette, Link, Save, Loader2, CheckCircle, Bell, Lock, ShieldCheck } from 'lucide-react'
 
 const APP_URL = typeof window !== 'undefined' ? window.location.origin : 'https://loyalty-platform-beta-ebon.vercel.app'
 
@@ -16,6 +16,7 @@ export default function SettingsPage() {
   const { authFetch } = useAuth()
   const [settings, setSettings] = useState<Record<string, any>>({})
   const [branding, setBranding] = useState({ slug: '', logo_url: '', primary_color: '#7c3aed' })
+  const [requireOtp, setRequireOtp] = useState(false)
   const [loading,      setLoading]      = useState(true)
   const [saving,       setSaving]       = useState(false)
   const [saved,        setSaved]        = useState(false)
@@ -35,6 +36,7 @@ export default function SettingsPage() {
       .then(d => {
         setSettings(d.settings || {})
         if (d.branding) setBranding({ slug: d.branding.slug || '', logo_url: d.branding.logo_url || '', primary_color: d.branding.primary_color || '#7c3aed' })
+        setRequireOtp(d.require_phone_otp ?? false)
       })
       .finally(() => setLoading(false))
   }, [])
@@ -75,7 +77,7 @@ export default function SettingsPage() {
     const r = await authFetch('/api/admin/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ settings, branding: { ...branding, slug: slugClean } }),
+      body: JSON.stringify({ settings, branding: { ...branding, slug: slugClean }, require_phone_otp: requireOtp }),
     })
     const d = await r.json()
     if (!r.ok) { setError(d.error || 'Failed to save'); setSaving(false); return }
@@ -332,6 +334,29 @@ export default function SettingsPage() {
             {testMsg && <p className={'text-xs mt-2 ' + (testMsg.includes('sent') ? 'text-emerald-600' : 'text-red-500')}>{testMsg}</p>}
             <p className="text-xs text-gray-300 mt-2">Requires KAPSO_API_KEY and KAPSO_PHONE_NUMBER_ID in Vercel env vars</p>
           </div>
+        </div>
+
+        {/* Member Registration */}
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <ShieldCheck size={16} className="text-violet-500" />
+            <p className="text-sm font-semibold text-gray-700">Member Registration</p>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm text-gray-700">Phone OTP verification</p>
+              <p className="text-xs text-gray-400">Members verify their number via WhatsApp code before joining</p>
+            </div>
+            <button onClick={() => setRequireOtp(v => !v)}
+              className={'w-11 h-6 rounded-full transition-colors shrink-0 relative ' + (requireOtp ? 'bg-violet-500' : 'bg-gray-200')}>
+              <span className={'absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ' + (requireOtp ? 'translate-x-5' : 'translate-x-0.5')} />
+            </button>
+          </div>
+          {requireOtp && (
+            <p className="text-xs text-amber-600 bg-amber-50 rounded-xl px-3 py-2 mt-3">
+              Requires KAPSO_API_KEY and KAPSO_PHONE_NUMBER_ID to be configured for OTP delivery.
+            </p>
+          )}
         </div>
 
         {/* Change Password */}

@@ -40,6 +40,7 @@ export default function PosScreen() {
   const [stampAnimIdx,  setStampAnimIdx]  = useState<number | null>(null)
   const [stampAnimKey,  setStampAnimKey]  = useState(0)
   const [newMemberName, setNewMemberName] = useState('')
+  const [stampEarnMode, setStampEarnMode] = useState<'qr' | 'manual' | null>(null)
 
   useEffect(() => {
     if (!isLoggedIn) router.replace('/pos')
@@ -47,7 +48,20 @@ export default function PosScreen() {
 
   useEffect(() => {
     if (tab === 'dashboard') loadDashStats()
+    if (tab === 'stamp' && stampEarnMode === null) loadStampCardMode()
   }, [tab])
+
+  async function loadStampCardMode() {
+    let staffId = ''
+    try { staffId = JSON.parse(localStorage.getItem('lp_staff') || '{}').staffId || '' } catch {}
+    const r = await fetch('/api/pos/stamp-card', {
+      headers: { 'x-staff-id': staffId, 'x-staff-company-id': companyId || '' },
+    })
+    if (r.ok) {
+      const d = await r.json()
+      setStampEarnMode(d.stampCard?.earn_mode || 'manual')
+    }
+  }
 
   if (!isLoggedIn) return null
 
@@ -271,59 +285,80 @@ export default function PosScreen() {
           </div>
         )}
 
-        {/* Stamp (lookup first) */}
+        {/* Stamp tab */}
         {tab === 'stamp' && (
-          <div className="bg-white rounded-2xl border border-gray-100 p-5">
-            <p className="text-xs font-medium text-gray-500 mb-4">Add Stamp</p>
-            <div className="flex gap-2 mb-2">
-              <input value={phone} onChange={e => setPhone(e.target.value)}
-                placeholder="Member phone" type="tel" inputMode="tel"
-                className="flex-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-violet-300" />
-              <button onClick={lookupMember} disabled={lookupLoading || !phone.trim()}
-                className="px-4 py-2.5 rounded-xl text-white text-sm font-medium disabled:opacity-50"
-                style={{ backgroundColor: color }}>
-                {lookupLoading ? <Loader2 size={16} className="animate-spin" /> : 'Find'}
-              </button>
-            </div>
-            <input value={newMemberName} onChange={e => setNewMemberName(e.target.value)}
-              placeholder="Name (optional — for new members)"
-              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-violet-300 mb-3" />
-            {member && (
-              <div className="mt-2">
-                <div className="flex items-center justify-between py-3 border-t border-gray-50">
-                  <div>
-                    <p className="text-sm font-medium text-gray-800">{member.member?.name || phone}</p>
-                    <p className="text-xs text-gray-400">{member.points ?? 0} pts · {member.tier}</p>
-                  </div>
-                  <button onClick={addStamp}
-                    className="px-4 py-2 rounded-xl text-white text-sm font-medium"
-                    style={{ backgroundColor: color }}>
-                    + Stamp
-                  </button>
+          <div className="space-y-3">
+            {/* QR mode banner */}
+            {stampEarnMode === 'qr' && (
+              <div className="bg-violet-50 border border-violet-100 rounded-2xl p-4 flex gap-3 items-start">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5" style={{ backgroundColor: color + '22' }}>
+                  <QrCode size={16} style={{ color }} />
                 </div>
-                {stampProgress && (
-                  <div className="mt-3">
-                    <StampCardVisual
-                      count={stampProgress.count}
-                      goal={stampProgress.goal}
-                      reward_text={stampProgress.reward_text}
-                      accent_color={stampProgress.accent_color}
-                      stamp_icon={stampProgress.stamp_icon}
-                      card_bg={stampProgress.card_bg}
-                      completed_count={stampProgress.completed_count}
-                      newStampIndex={stampAnimIdx}
-                      animKey={stampAnimKey}
-                      compact
-                    />
-                  </div>
-                )}
-                {stampMsg && (
-                  <p className={'text-xs text-center mt-2 font-medium ' + (stampMsg.includes('complete') || stampMsg.includes('Complete') ? 'text-amber-600' : 'text-violet-600')}>
-                    {stampMsg}
-                  </p>
-                )}
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">QR stamp mode active</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Stamps are added automatically when members scan the points QR code. Generate a QR from the <span className="font-medium">Generate QR</span> tab.</p>
+                </div>
               </div>
             )}
+
+            <div className="bg-white rounded-2xl border border-gray-100 p-5">
+              <p className="text-xs font-medium text-gray-500 mb-4">
+                {stampEarnMode === 'qr' ? 'Check stamp progress' : 'Add Stamp'}
+              </p>
+              <div className="flex gap-2 mb-2">
+                <input value={phone} onChange={e => setPhone(e.target.value)}
+                  placeholder="Member phone" type="tel" inputMode="tel"
+                  className="flex-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-violet-300" />
+                <button onClick={lookupMember} disabled={lookupLoading || !phone.trim()}
+                  className="px-4 py-2.5 rounded-xl text-white text-sm font-medium disabled:opacity-50"
+                  style={{ backgroundColor: color }}>
+                  {lookupLoading ? <Loader2 size={16} className="animate-spin" /> : 'Find'}
+                </button>
+              </div>
+              {stampEarnMode !== 'qr' && (
+                <input value={newMemberName} onChange={e => setNewMemberName(e.target.value)}
+                  placeholder="Name (optional — for new members)"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-violet-300 mb-3" />
+              )}
+              {member && (
+                <div className="mt-2">
+                  <div className="flex items-center justify-between py-3 border-t border-gray-50">
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">{member.member?.name || phone}</p>
+                      <p className="text-xs text-gray-400">{member.points ?? 0} pts · {member.tier}</p>
+                    </div>
+                    {(stampEarnMode === 'manual' || !stampEarnMode) && (
+                      <button onClick={addStamp}
+                        className="px-4 py-2 rounded-xl text-white text-sm font-medium"
+                        style={{ backgroundColor: color }}>
+                        + Stamp
+                      </button>
+                    )}
+                  </div>
+                  {stampProgress && (
+                    <div className="mt-3">
+                      <StampCardVisual
+                        count={stampProgress.count}
+                        goal={stampProgress.goal}
+                        reward_text={stampProgress.reward_text}
+                        accent_color={stampProgress.accent_color}
+                        stamp_icon={stampProgress.stamp_icon}
+                        card_bg={stampProgress.card_bg}
+                        completed_count={stampProgress.completed_count}
+                        newStampIndex={stampAnimIdx}
+                        animKey={stampAnimKey}
+                        compact
+                      />
+                    </div>
+                  )}
+                  {stampMsg && (
+                    <p className={'text-xs text-center mt-2 font-medium ' + (stampMsg.includes('complete') || stampMsg.includes('Complete') ? 'text-amber-600' : 'text-violet-600')}>
+                      {stampMsg}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
 

@@ -2,12 +2,12 @@
 
 import { Suspense, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { Stamp } from 'lucide-react'
+import StampCardVisual from '@/components/StampCardVisual'
 
-type Company = { id: string; name: string; slug: string; logo_url: string | null; primary_color: string }
+type Company = { id: string; name: string; slug: string; logo_url: string | null; primary_color: string; require_phone_otp?: boolean }
 
 interface LedgerEntry { id: string; type: string; amount: number; source: string; note: string | null; created_at: string }
-interface StampProgress { count: number; completed_count: number; goal: number; reward_text: string }
+interface StampProgress { count: number; completed_count: number; goal: number; reward_text: string; accent_color?: string; stamp_icon?: string; card_bg?: string }
 interface Reward { id: string; name: string; description: string | null; points_cost: number; validity_days: number }
 interface Voucher { id: string; code: string; type: string; description: string; expires_at: string | null; redeemed_at: string | null; created_at: string }
 interface MemberData {
@@ -45,6 +45,13 @@ function PortalContent() {
   const [redeeming,  setRedeeming]  = useState<string | null>(null)
   const [redeemMsg,  setRedeemMsg]  = useState('')
 
+  // OTP flow
+  const [otpStep,    setOtpStep]    = useState(false)
+  const [otpCode,    setOtpCode]    = useState('')
+  const [otpSending, setOtpSending] = useState(false)
+  const [otpError,   setOtpError]   = useState('')
+  const [otpVerifying, setOtpVerifying] = useState(false)
+
   // Load company branding
   useEffect(() => {
     fetch(`/api/company/${slug}`)
@@ -54,6 +61,44 @@ function PortalContent() {
   }, [slug])
 
   const color = company?.primary_color || '#7c3aed'
+
+  async function requestOtp(ph: string) {
+    if (!company || !slug) return
+    setOtpSending(true); setOtpError('')
+    const r = await fetch('/api/otp/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: ph.trim(), slug }),
+    })
+    const d = await r.json()
+    setOtpSending(false)
+    if (!r.ok) { setOtpError(d.error || 'Failed to send code'); return }
+    setOtpStep(true)
+  }
+
+  async function verifyOtp() {
+    if (!slug || !otpCode.trim()) return
+    setOtpVerifying(true); setOtpError('')
+    const r = await fetch('/api/otp/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: phone.trim(), slug, code: otpCode.trim() }),
+    })
+    const d = await r.json()
+    setOtpVerifying(false)
+    if (!r.ok) { setOtpError(d.error || 'Invalid code'); return }
+    setOtpStep(false)
+    await loadMember(phone)
+  }
+
+  async function handlePhoneSubmit() {
+    if (!company || phone.trim().length < 6) return
+    if (company.require_phone_otp) {
+      await requestOtp(phone)
+    } else {
+      await loadMember(phone)
+    }
+  }
 
   async function loadMember(ph: string) {
     if (!company || ph.trim().length < 6) return
@@ -114,43 +159,97 @@ function PortalContent() {
     </div>
   )
 
+  const companyHeader = (
+    <div className="mb-8 text-center">
+      {company.logo_url ? (
+        <img src={company.logo_url} alt={company.name} className="h-16 mx-auto mb-3 object-contain" />
+      ) : (
+        <div className="w-16 h-16 rounded-2xl mx-auto mb-3 flex items-center justify-center text-white text-2xl font-bold"
+          style={{ backgroundColor: color }}>
+          {company.name.charAt(0).toUpperCase()}
+        </div>
+      )}
+      <h1 className="text-xl font-bold text-gray-800">{company.name}</h1>
+      <p className="text-sm text-gray-400 mt-1">Loyalty Programme</p>
+    </div>
+  )
+
+  // OTP verification screen
+  if (otpStep) return (
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#F5F5F3' }}>
+      <div className="flex-1 flex flex-col items-center justify-center p-6">
+        {companyHeader}
+        <div className="w-full max-w-xs bg-white rounded-3xl border border-gray-100 p-6">
+          <div className="text-center mb-5">
+            <div className="w-12 h-12 rounded-2xl mx-auto mb-3 flex items-center justify-center text-2xl"
+              style={{ backgroundColor: color + '15' }}>
+              💬
+            </div>
+            <p className="text-sm font-semibold text-gray-800">Verify your number</p>
+            <p className="text-xs text-gray-400 mt-1">
+              A 6-digit code was sent to <span className="font-medium text-gray-600">{phone}</span> via WhatsApp
+            </p>
+          </div>
+          <input
+            value={otpCode}
+            onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            onKeyDown={e => e.key === 'Enter' && verifyOtp()}
+            placeholder="000000"
+            type="tel" inputMode="numeric"
+            maxLength={6}
+            className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-lg text-center font-mono tracking-widest focus:outline-none mb-3"
+          />
+          {otpError && <p className="text-xs text-red-500 text-center mb-3">{otpError}</p>}
+          <button
+            onClick={verifyOtp}
+            disabled={otpVerifying || otpCode.length !== 6}
+            className="w-full py-3 rounded-2xl text-white text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2 mb-3"
+            style={{ backgroundColor: color }}>
+            {otpVerifying
+              ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              : 'Verify'}
+          </button>
+          <button
+            onClick={() => requestOtp(phone)}
+            disabled={otpSending}
+            className="w-full py-2 text-xs text-gray-400 hover:text-gray-600 disabled:opacity-40">
+            {otpSending ? 'Sending…' : 'Resend code'}
+          </button>
+          <button
+            onClick={() => { setOtpStep(false); setOtpCode(''); setOtpError('') }}
+            className="w-full py-2 text-xs text-gray-300 hover:text-gray-500 mt-1">
+            ← Change number
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
   // Phone entry screen
   if (!memberData) return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#F5F5F3' }}>
       <div className="flex-1 flex flex-col items-center justify-center p-6">
-        {/* Company logo / name */}
-        <div className="mb-8 text-center">
-          {company.logo_url ? (
-            <img src={company.logo_url} alt={company.name} className="h-16 mx-auto mb-3 object-contain" />
-          ) : (
-            <div className="w-16 h-16 rounded-2xl mx-auto mb-3 flex items-center justify-center text-white text-2xl font-bold"
-              style={{ backgroundColor: color }}>
-              {company.name.charAt(0).toUpperCase()}
-            </div>
-          )}
-          <h1 className="text-xl font-bold text-gray-800">{company.name}</h1>
-          <p className="text-sm text-gray-400 mt-1">Loyalty Programme</p>
-        </div>
+        {companyHeader}
 
         <div className="w-full max-w-xs bg-white rounded-3xl border border-gray-100 p-6">
           <p className="text-sm font-medium text-gray-700 mb-4 text-center">Enter your phone number</p>
           <input
             value={phone}
             onChange={e => setPhone(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && loadMember(phone)}
+            onKeyDown={e => e.key === 'Enter' && handlePhoneSubmit()}
             placeholder="+60 12 345 6789"
             type="tel" inputMode="tel"
             className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-sm focus:outline-none mb-3"
             style={{ '--tw-ring-color': color } as React.CSSProperties}
           />
           <button
-            onClick={() => loadMember(phone)}
-            disabled={loading || phone.trim().length < 6}
+            onClick={handlePhoneSubmit}
+            disabled={loading || otpSending || phone.trim().length < 6}
             className="w-full py-3 rounded-2xl text-white text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
             style={{ backgroundColor: color }}>
-            {loading
+            {(loading || otpSending)
               ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              : 'View My Account'}
+              : company.require_phone_otp ? 'Send Verification Code' : 'View My Account'}
           </button>
           <p className="text-xs text-center text-gray-300 mt-3">New members are registered automatically</p>
         </div>
@@ -213,24 +312,15 @@ function PortalContent() {
         {tab === 'overview' && (
           <>
             {stamp && (
-              <div className="bg-white rounded-2xl p-4">
-                <p className="text-xs font-medium text-gray-500 mb-3">Stamp Card</p>
-                <div className="flex flex-wrap gap-1.5 mb-3">
-                  {Array.from({ length: stamp.goal }).map((_, i) => (
-                    <div key={i} className={'w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs ' +
-                      (i < stamp.count ? 'text-white' : 'border-gray-200 text-gray-300')}
-                      style={i < stamp.count ? { backgroundColor: color, borderColor: color } : {}}>
-                      {i < stamp.count ? '✓' : ''}
-                    </div>
-                  ))}
-                </div>
-                <p className="text-xs text-gray-400">
-                  <span className="font-semibold" style={{ color }}>{stamp.count}</span>/{stamp.goal} stamps ·{' '}
-                  {stamp.goal - stamp.count > 0
-                    ? <>{stamp.goal - stamp.count} more for <span className="font-medium text-gray-600">{stamp.reward_text}</span></>
-                    : 'Card complete!'}
-                </p>
-              </div>
+              <StampCardVisual
+                count={stamp.count}
+                goal={stamp.goal}
+                reward_text={stamp.reward_text}
+                accent_color={stamp.accent_color || color}
+                stamp_icon={stamp.stamp_icon}
+                card_bg={stamp.card_bg as any}
+                completed_count={stamp.completed_count}
+              />
             )}
             <div className="bg-white rounded-2xl p-4">
               <p className="text-xs font-medium text-gray-500 mb-3">Points History</p>

@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   const db = sql()
   const [settingsRows, companyRows] = await Promise.all([
     db`SELECT data FROM settings WHERE company_id = ${auth.companyId} LIMIT 1`,
-    db`SELECT slug, logo_url, primary_color FROM companies WHERE id = ${auth.companyId} LIMIT 1`,
+    db`SELECT slug, logo_url, primary_color, require_phone_otp FROM companies WHERE id = ${auth.companyId} LIMIT 1`,
   ])
 
   const company = companyRows[0] || {}
@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
       logo_url:      company.logo_url      || null,
       primary_color: company.primary_color || '#7c3aed',
     },
+    require_phone_otp: company.require_phone_otp ?? false,
   })
 }
 
@@ -27,7 +28,7 @@ export async function PUT(req: NextRequest) {
   const auth = await validateAdmin(req)
   if (!auth) return unauthorized()
 
-  const { settings, branding } = await req.json()
+  const { settings, branding, require_phone_otp } = await req.json()
   const db = sql()
 
   // Save JSONB settings
@@ -59,6 +60,10 @@ export async function PUT(req: NextRequest) {
         primary_color = COALESCE(${primary_color || null}, primary_color)
       WHERE id = ${auth.companyId}
     `
+  }
+
+  if (require_phone_otp !== undefined) {
+    await db`UPDATE companies SET require_phone_otp = ${!!require_phone_otp} WHERE id = ${auth.companyId}`
   }
 
   return NextResponse.json({ success: true })

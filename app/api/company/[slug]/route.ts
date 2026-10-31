@@ -6,7 +6,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
 
   const db = sql()
   const rows = await db`
-    SELECT id, name, slug, logo_url, primary_color
+    SELECT id, name, slug, logo_url, primary_color, require_phone_otp
     FROM companies
     WHERE slug = ${slug}
     LIMIT 1
