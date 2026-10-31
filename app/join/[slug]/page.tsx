@@ -45,6 +45,7 @@ function PortalContent() {
   const [tab,        setTab]        = useState<Tab>('overview')
   const [redeeming,  setRedeeming]  = useState<string | null>(null)
   const [redeemMsg,  setRedeemMsg]  = useState('')
+  const [confirmReward, setConfirmReward] = useState<Reward | null>(null)
 
   // Live update polling
   const memberDataRef = useRef<MemberData | null>(null)
@@ -503,7 +504,7 @@ function PortalContent() {
                       <p className="text-xs font-bold mt-1" style={{ color }}>{r.points_cost} points</p>
                     </div>
                   </div>
-                  <button onClick={() => redeemReward(r)} disabled={!canRedeem || redeeming === r.id}
+                  <button onClick={() => canRedeem && setConfirmReward(r)} disabled={!canRedeem || redeeming === r.id}
                     className={'w-full py-2.5 rounded-xl text-sm font-medium ' + (canRedeem ? 'text-white' : 'bg-gray-100 text-gray-400 cursor-not-allowed')}
                     style={canRedeem ? { backgroundColor: color } : {}}>
                     {redeeming === r.id ? 'Redeeming…' : canRedeem ? 'Redeem Now' : `Need ${r.points_cost - membership.points} more pts`}
@@ -566,6 +567,58 @@ function PortalContent() {
           </>
         )}
       </div>
+
+      {/* Redeem confirmation bottom sheet */}
+      {confirmReward && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end"
+          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+          onClick={() => setConfirmReward(null)}>
+          <div className="bg-white rounded-t-3xl p-6 mx-0 safe-area-bottom"
+            onClick={e => e.stopPropagation()}>
+            <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shrink-0"
+                style={{ backgroundColor: color + '20' }}>🎁</div>
+              <div>
+                <p className="text-base font-bold text-gray-900">{confirmReward.name}</p>
+                {confirmReward.description && (
+                  <p className="text-xs text-gray-400 mt-0.5">{confirmReward.description}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-2xl p-4 mb-5" style={{ backgroundColor: color + '10' }}>
+              <div className="flex justify-between items-center mb-1">
+                <p className="text-sm text-gray-500">Cost</p>
+                <p className="text-sm font-bold" style={{ color }}>−{confirmReward.points_cost} pts</p>
+              </div>
+              <div className="flex justify-between items-center">
+                <p className="text-sm text-gray-500">Your balance</p>
+                <p className="text-sm font-bold text-gray-800">{membership.points} pts</p>
+              </div>
+              <div className="border-t border-gray-200 mt-3 pt-3 flex justify-between items-center">
+                <p className="text-sm text-gray-500">After redeem</p>
+                <p className="text-sm font-bold text-gray-800">{membership.points - confirmReward.points_cost} pts</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setConfirmReward(null)}
+                className="py-3.5 rounded-2xl border border-gray-200 text-sm font-medium text-gray-600">
+                Cancel
+              </button>
+              <button
+                onClick={() => { redeemReward(confirmReward); setConfirmReward(null) }}
+                disabled={redeeming === confirmReward.id}
+                className="py-3.5 rounded-2xl text-white text-sm font-bold disabled:opacity-50"
+                style={{ backgroundColor: color }}>
+                Yes, Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
