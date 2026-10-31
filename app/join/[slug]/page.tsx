@@ -64,72 +64,89 @@ function PortalContent() {
     let timer: ReturnType<typeof setTimeout>
     let active = true
 
-    async function checkStamps() {
+    async function pollData() {
       if (!active) return
       const curr = memberDataRef.current
       if (!curr) { schedule(); return }
       try {
-        const r = await fetch('/api/members/' + id + '/stamps?_=' + Date.now(), {
-          cache: 'no-store',
-          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
-        })
-        if (r.ok) {
-          const d = await r.json()
-          const prev = Number(curr.stamp?.count ?? 0)
-          const next = Number(d.stamp?.count ?? 0)
-          if (next !== prev && d.stamp) {
-            const prevGoal = Number(curr.stamp?.goal ?? 999)
-            const prevWasComplete = prev >= prevGoal
-            const rewardJustClaimed = prevWasComplete && next === 0
+        const ts = Date.now()
+        // Always fetch stamps + ledger every cycle so UI is always current
+        const [sdRes, ldRes] = await Promise.all([
+          fetch(`/api/members/${id}/stamps?_=${ts}`, {
+            cache: 'no-store',
+            headers: { 'Cache-Control': 'no-cache, no-store', 'Pragma': 'no-cache' },
+          }),
+          fetch(`/api/members/${id}/ledger?_=${ts}`, {
+            cache: 'no-store',
+            headers: { 'Cache-Control': 'no-cache, no-store', 'Pragma': 'no-cache' },
+          }),
+        ])
+        if (!sdRes.ok) { schedule(); return }
 
-            if (rewardJustClaimed) {
-              setCelebrationReward(curr.stamp?.reward_text || '')
-              setShowCelebration(true)
-              setTimeout(() => setShowCelebration(false), 3500)
-            } else if (next > prev) {
-              setLiveStampAnimIdx(next - 1)
-              setLiveStampAnimKey(k => k + 1)
-              setTimeout(() => setLiveStampAnimIdx(null), 900)
-              setNewStampToast(true)
-              setTimeout(() => setNewStampToast(false), 3500)
-            }
-            const [lu, ld] = await Promise.all([
-              fetch('/api/members/lookup', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone: ph, slug }),
-              }).then(r => r.json()),
-              fetch('/api/members/' + id + '/ledger?_=' + Date.now(), {
-                cache: 'no-store', headers: { 'Cache-Control': 'no-cache' },
-              }).then(r => r.json()),
-            ])
-            setMemberData(prev => prev ? {
-              ...prev,
-              membership: lu.membership || prev.membership,
-              stamp:      d.stamp,
-              ledger:     ld.ledger     || prev.ledger,
-            } : null)
+        const sd = await sdRes.json()
+        const ld = ldRes.ok ? await ldRes.json() : null
+
+        if (sd.stamp) {
+          const prev = Number(curr.stamp?.count ?? 0)
+          const next = Number(sd.stamp?.count ?? 0)
+          const prevGoal = Number(curr.stamp?.goal ?? 999)
+          const prevWasComplete = prev >= prevGoal
+          const rewardJustClaimed = prevWasComplete && next === 0
+
+          if (rewardJustClaimed) {
+            setCelebrationReward(curr.stamp?.reward_text || '')
+            setShowCelebration(true)
+            setTimeout(() => setShowCelebration(false), 3500)
+          } else if (next > prev) {
+            setLiveStampAnimIdx(next - 1)
+            setLiveStampAnimKey(k => k + 1)
+            setTimeout(() => setLiveStampAnimIdx(null), 900)
+            setNewStampToast(true)
+            setTimeout(() => setNewStampToast(false), 3500)
           }
         }
+
+        // Also refresh points balance when stamp count changed
+        let freshPoints: number | null = null
+        if (sd.stamp && Number(sd.stamp.count) !== Number(curr.stamp?.count ?? -1)) {
+          try {
+            const lu = await fetch('/api/members/lookup', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ phone: ph, slug }),
+            }).then(r => r.json())
+            freshPoints = lu.membership?.points ?? null
+          } catch {}
+        }
+
+        setMemberData(prev => {
+          if (!prev) return null
+          return {
+            ...prev,
+            membership: freshPoints !== null
+              ? { ...prev.membership, points: freshPoints! }
+              : prev.membership,
+            stamp:  sd.stamp  ?? prev.stamp,
+            ledger: ld?.ledger ?? prev.ledger,
+          }
+        })
       } catch {}
       schedule()
     }
 
     function schedule() {
       if (!active) return
-      // Poll faster when page is visible, slower when hidden (saves battery)
-      const delay = document.visibilityState === 'visible' ? 3000 : 15000
-      timer = setTimeout(checkStamps, delay)
+      const delay = document.visibilityState === 'visible' ? 2000 : 15000
+      timer = setTimeout(pollData, delay)
     }
 
     // Start immediately
-    checkStamps()
+    pollData()
 
-    // When user returns to tab, check right away
     function onVisible() {
       if (document.visibilityState === 'visible') {
         clearTimeout(timer)
-        checkStamps()
+        pollData()
       }
     }
     document.addEventListener('visibilitychange', onVisible)

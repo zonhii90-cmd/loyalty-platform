@@ -15,6 +15,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     LIMIT 1
   `
   return NextResponse.json({ stamp: rows[0] || null }, {
-    headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
+    headers: {
+      'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+      'CDN-Cache-Control': 'no-store',
+      'Vercel-CDN-Cache-Control': 'no-store',
+      'Pragma': 'no-cache',
+    },
   })
 }
