@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 import StampCardVisual from '@/components/StampCardVisual'
 
@@ -44,6 +44,63 @@ function PortalContent() {
   const [tab,        setTab]        = useState<Tab>('overview')
   const [redeeming,  setRedeeming]  = useState<string | null>(null)
   const [redeemMsg,  setRedeemMsg]  = useState('')
+
+  // Live update polling
+  const memberDataRef = useRef<MemberData | null>(null)
+  const [liveStampAnimIdx, setLiveStampAnimIdx] = useState<number | null>(null)
+  const [liveStampAnimKey, setLiveStampAnimKey] = useState(0)
+  const [newStampToast, setNewStampToast] = useState(false)
+
+  useEffect(() => { memberDataRef.current = memberData }, [memberData])
+
+  useEffect(() => {
+    if (!memberData) return
+    const id = memberData.membership.id
+    const ph = memberData.member.phone
+
+    const poll = setInterval(async () => {
+      const curr = memberDataRef.current
+      if (!curr) return
+      try {
+        const [sr, lr] = await Promise.all([
+          fetch('/api/members/' + id + '/stamps'),
+          fetch('/api/members/lookup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone: ph, slug }),
+          }),
+        ])
+        if (!sr.ok || !lr.ok) return
+        const [sd, ld] = await Promise.all([sr.json(), lr.json()])
+
+        const newCount  = sd.stamp?.count  ?? 0
+        const curCount  = curr.stamp?.count ?? 0
+        const newPoints = ld.membership?.points ?? curr.membership.points
+        const stampChanged  = newCount  > curCount
+        const pointsChanged = newPoints !== curr.membership.points
+
+        if (stampChanged || pointsChanged) {
+          if (stampChanged) {
+            setLiveStampAnimIdx(newCount - 1)
+            setLiveStampAnimKey(k => k + 1)
+            setTimeout(() => setLiveStampAnimIdx(null), 900)
+            setNewStampToast(true)
+            setTimeout(() => setNewStampToast(false), 3500)
+          }
+          const ledgerRes = await fetch('/api/members/' + id + '/ledger')
+          const ledgerData = await ledgerRes.json()
+          setMemberData(prev => prev ? {
+            ...prev,
+            membership: ld.membership || prev.membership,
+            stamp:      sd.stamp      || prev.stamp,
+            ledger:     ledgerData.ledger || prev.ledger,
+          } : null)
+        }
+      } catch {}
+    }, 4000)
+
+    return () => clearInterval(poll)
+  }, [memberData?.membership.id])
 
   // OTP flow
   const [otpStep,    setOtpStep]    = useState(false)
@@ -311,6 +368,14 @@ function PortalContent() {
         {/* Overview */}
         {tab === 'overview' && (
           <>
+            {/* New stamp toast */}
+            {newStampToast && (
+              <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-full text-white text-sm font-semibold shadow-lg flex items-center gap-2"
+                style={{ backgroundColor: stamp?.accent_color || color }}>
+                <span>⭐</span> New stamp added!
+              </div>
+            )}
+
             {stamp && (
               <StampCardVisual
                 count={stamp.count}
@@ -320,6 +385,8 @@ function PortalContent() {
                 stamp_icon={stamp.stamp_icon}
                 card_bg={stamp.card_bg as any}
                 completed_count={stamp.completed_count}
+                newStampIndex={liveStampAnimIdx}
+                animKey={liveStampAnimKey}
               />
             )}
             <div className="bg-white rounded-2xl p-4">
