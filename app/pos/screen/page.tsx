@@ -116,7 +116,7 @@ export default function PosScreen() {
     const d = await r.json()
     if (r.ok) {
       // Reset count to 0 locally so card shows as new
-      setStampProgress(prev => prev ? { ...prev, count: 0 } : null)
+      setStampProgress((prev: any) => prev ? { ...prev, count: 0 } : null)
       setClaimMsg(`✓ Reward confirmed: ${d.rewardText}`)
       setStampStep('success')
     } else {
