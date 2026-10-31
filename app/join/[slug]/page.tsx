@@ -54,50 +54,54 @@ function PortalContent() {
   useEffect(() => { memberDataRef.current = memberData }, [memberData])
 
   useEffect(() => {
-    if (!memberData) return
-    const id = memberData.membership.id
-    const ph = memberData.member.phone
+    if (!memberData?.membership.id) return
+    const id   = memberData.membership.id
+    const ph   = memberData.member.phone
 
     const poll = setInterval(async () => {
       const curr = memberDataRef.current
       if (!curr) return
       try {
-        const [sr, lr] = await Promise.all([
-          fetch('/api/members/' + id + '/stamps'),
+        // Bust browser cache with timestamp param
+        const r = await fetch('/api/members/' + id + '/stamps?t=' + Date.now(), {
+          cache: 'no-store',
+        })
+        if (!r.ok) return
+        const d = await r.json()
+
+        const prev = Number(curr.stamp?.count ?? 0)
+        const next = Number(d.stamp?.count ?? 0)
+
+        if (next === prev) return   // nothing changed
+
+        // Animate new stamp
+        if (next > prev) {
+          setLiveStampAnimIdx(next - 1)
+          setLiveStampAnimKey(k => k + 1)
+          setTimeout(() => setLiveStampAnimIdx(null), 900)
+          setNewStampToast(true)
+          setTimeout(() => setNewStampToast(false), 3500)
+        }
+
+        // Refresh points + ledger alongside stamp
+        const [lookupRes, ledgerRes] = await Promise.all([
           fetch('/api/members/lookup', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ phone: ph, slug }),
           }),
+          fetch('/api/members/' + id + '/ledger?t=' + Date.now(), { cache: 'no-store' }),
         ])
-        if (!sr.ok || !lr.ok) return
-        const [sd, ld] = await Promise.all([sr.json(), lr.json()])
+        const [lu, ld] = await Promise.all([lookupRes.json(), ledgerRes.json()])
 
-        const newCount  = sd.stamp?.count  ?? 0
-        const curCount  = curr.stamp?.count ?? 0
-        const newPoints = ld.membership?.points ?? curr.membership.points
-        const stampChanged  = newCount  > curCount
-        const pointsChanged = newPoints !== curr.membership.points
-
-        if (stampChanged || pointsChanged) {
-          if (stampChanged) {
-            setLiveStampAnimIdx(newCount - 1)
-            setLiveStampAnimKey(k => k + 1)
-            setTimeout(() => setLiveStampAnimIdx(null), 900)
-            setNewStampToast(true)
-            setTimeout(() => setNewStampToast(false), 3500)
-          }
-          const ledgerRes = await fetch('/api/members/' + id + '/ledger')
-          const ledgerData = await ledgerRes.json()
-          setMemberData(prev => prev ? {
-            ...prev,
-            membership: ld.membership || prev.membership,
-            stamp:      sd.stamp      || prev.stamp,
-            ledger:     ledgerData.ledger || prev.ledger,
-          } : null)
-        }
+        setMemberData(prev => prev ? {
+          ...prev,
+          membership: lu.membership  || prev.membership,
+          stamp:      d.stamp        || prev.stamp,
+          ledger:     ld.ledger      || prev.ledger,
+        } : null)
       } catch {}
-    }, 4000)
+    }, 3000)
 
     return () => clearInterval(poll)
   }, [memberData?.membership.id])

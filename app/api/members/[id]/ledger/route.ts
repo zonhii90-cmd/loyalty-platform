@@ -12,5 +12,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     ORDER BY created_at DESC
     LIMIT 50
   `
-  return NextResponse.json({ ledger })
+  return NextResponse.json({ ledger }, {
+    headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
+  })
 }

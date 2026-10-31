@@ -14,5 +14,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     WHERE ms.membership_id = ${membershipId} AND sc.active = true
     LIMIT 1
   `
-  return NextResponse.json({ stamp: rows[0] || null })
+  return NextResponse.json({ stamp: rows[0] || null }, {
+    headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
+  })
 }
