@@ -54,6 +54,7 @@ function PortalContent() {
   const [newStampToast, setNewStampToast] = useState(false)
   const [showCelebration, setShowCelebration] = useState(false)
   const [celebrationReward, setCelebrationReward] = useState('')
+  const [pollTick, setPollTick] = useState(0)
 
   useEffect(() => { memberDataRef.current = memberData }, [memberData])
 
@@ -70,11 +71,11 @@ function PortalContent() {
       if (!curr) { schedule(); return }
       try {
         const ts = Date.now()
-        // Always fetch stamps + ledger every cycle so UI is always current
+        // Use POST for stamps to bypass iOS WebKit GET caching
         const [sdRes, ldRes] = await Promise.all([
-          fetch(`/api/members/${id}/stamps?_=${ts}`, {
+          fetch(`/api/members/${id}/stamps`, {
+            method: 'POST',
             cache: 'no-store',
-            headers: { 'Cache-Control': 'no-cache, no-store', 'Pragma': 'no-cache' },
           }),
           fetch(`/api/members/${id}/ledger?_=${ts}`, {
             cache: 'no-store',
@@ -119,6 +120,7 @@ function PortalContent() {
           } catch {}
         }
 
+        setPollTick(t => t + 1)
         setMemberData(prev => {
           if (!prev) return null
           return {
@@ -405,6 +407,10 @@ function PortalContent() {
           <p className="text-xs text-gray-400 mb-1">Points Balance</p>
           <p className="text-5xl font-bold" style={{ color }}>{membership.points}</p>
           <p className="text-xs text-gray-300 mt-2">Since {new Date(membership.joined_at).toLocaleDateString()}</p>
+          <p className="text-xs text-gray-300 mt-1">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 mr-1 animate-pulse" />
+            Live #{pollTick}
+          </p>
           <button onClick={() => { setMemberData(null); setPhone('') }}
             className="mt-3 text-xs text-gray-300 hover:text-gray-400">← Switch account</button>
         </div>

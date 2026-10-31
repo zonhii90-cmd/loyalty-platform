@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sql } from '@/lib/db'
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id: membershipId } = await params
-
+async function queryStamps(membershipId: string) {
   const db = sql()
   const rows = await db`
     SELECT ms.count, ms.completed_count,
@@ -22,4 +20,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       'Pragma': 'no-cache',
     },
   })
+}
+
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  return queryStamps(id)
+}
+
+// POST used by live polling so iOS WebKit never serves a cached response
+export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  return queryStamps(id)
 }
