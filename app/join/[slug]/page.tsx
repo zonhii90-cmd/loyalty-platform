@@ -55,55 +55,78 @@ function PortalContent() {
 
   useEffect(() => {
     if (!memberData?.membership.id) return
-    const id   = memberData.membership.id
-    const ph   = memberData.member.phone
+    const id = memberData.membership.id
+    const ph = memberData.member.phone
+    let timer: ReturnType<typeof setTimeout>
+    let active = true
 
-    const poll = setInterval(async () => {
+    async function checkStamps() {
+      if (!active) return
       const curr = memberDataRef.current
-      if (!curr) return
+      if (!curr) { schedule(); return }
       try {
-        // Bust browser cache with timestamp param
-        const r = await fetch('/api/members/' + id + '/stamps?t=' + Date.now(), {
+        const r = await fetch('/api/members/' + id + '/stamps?_=' + Date.now(), {
           cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
         })
-        if (!r.ok) return
-        const d = await r.json()
-
-        const prev = Number(curr.stamp?.count ?? 0)
-        const next = Number(d.stamp?.count ?? 0)
-
-        if (next === prev) return   // nothing changed
-
-        // Animate new stamp
-        if (next > prev) {
-          setLiveStampAnimIdx(next - 1)
-          setLiveStampAnimKey(k => k + 1)
-          setTimeout(() => setLiveStampAnimIdx(null), 900)
-          setNewStampToast(true)
-          setTimeout(() => setNewStampToast(false), 3500)
+        if (r.ok) {
+          const d = await r.json()
+          const prev = Number(curr.stamp?.count ?? 0)
+          const next = Number(d.stamp?.count ?? 0)
+          if (next !== prev && d.stamp) {
+            if (next > prev) {
+              setLiveStampAnimIdx(next - 1)
+              setLiveStampAnimKey(k => k + 1)
+              setTimeout(() => setLiveStampAnimIdx(null), 900)
+              setNewStampToast(true)
+              setTimeout(() => setNewStampToast(false), 3500)
+            }
+            const [lu, ld] = await Promise.all([
+              fetch('/api/members/lookup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone: ph, slug }),
+              }).then(r => r.json()),
+              fetch('/api/members/' + id + '/ledger?_=' + Date.now(), {
+                cache: 'no-store', headers: { 'Cache-Control': 'no-cache' },
+              }).then(r => r.json()),
+            ])
+            setMemberData(prev => prev ? {
+              ...prev,
+              membership: lu.membership || prev.membership,
+              stamp:      d.stamp,
+              ledger:     ld.ledger     || prev.ledger,
+            } : null)
+          }
         }
-
-        // Refresh points + ledger alongside stamp
-        const [lookupRes, ledgerRes] = await Promise.all([
-          fetch('/api/members/lookup', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone: ph, slug }),
-          }),
-          fetch('/api/members/' + id + '/ledger?t=' + Date.now(), { cache: 'no-store' }),
-        ])
-        const [lu, ld] = await Promise.all([lookupRes.json(), ledgerRes.json()])
-
-        setMemberData(prev => prev ? {
-          ...prev,
-          membership: lu.membership  || prev.membership,
-          stamp:      d.stamp        || prev.stamp,
-          ledger:     ld.ledger      || prev.ledger,
-        } : null)
       } catch {}
-    }, 3000)
+      schedule()
+    }
 
-    return () => clearInterval(poll)
+    function schedule() {
+      if (!active) return
+      // Poll faster when page is visible, slower when hidden (saves battery)
+      const delay = document.visibilityState === 'visible' ? 3000 : 15000
+      timer = setTimeout(checkStamps, delay)
+    }
+
+    // Start immediately
+    checkStamps()
+
+    // When user returns to tab, check right away
+    function onVisible() {
+      if (document.visibilityState === 'visible') {
+        clearTimeout(timer)
+        checkStamps()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+
+    return () => {
+      active = false
+      clearTimeout(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [memberData?.membership.id])
 
   // OTP flow
