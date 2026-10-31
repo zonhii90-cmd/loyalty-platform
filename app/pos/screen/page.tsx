@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useStaff } from '@/lib/staff-context'
-import { QrCode, Stamp, LogOut, Loader2, Ticket, CheckCircle, XCircle, BarChart2, ChevronRight, X, ArrowLeft, Users, Search } from 'lucide-react'
+import { QrCode, Stamp, LogOut, Loader2, Ticket, CheckCircle, XCircle, BarChart2, ChevronRight, X, ArrowLeft, Users, Search, Gift } from 'lucide-react'
 import StampCardVisual from '@/components/StampCardVisual'
 
 type Tab = 'stamp' | 'qr' | 'redeem' | 'dashboard'
@@ -34,6 +34,8 @@ export default function PosScreen() {
   const [stampAnimKey,  setStampAnimKey]  = useState(0)
   const [stampEarnMode, setStampEarnMode] = useState<'qr' | 'manual' | null>(null)
   const [justStamped, setJustStamped] = useState(false)
+  const [claimingReward, setClaimingReward] = useState(false)
+  const [claimMsg, setClaimMsg] = useState('')
 
   // QR state
   const [earnType, setEarnType] = useState<'fixed' | 'purchase'>('fixed')
@@ -99,7 +101,28 @@ export default function PosScreen() {
   function resetStamp() {
     setPhone(''); setNewMemberName(''); setMember(null); setStampMsg('')
     setStampProgress(null); setStampStep('input'); setJustStamped(false)
+    setClaimMsg(''); setClaimingReward(false)
     setTimeout(() => phoneRef.current?.focus(), 100)
+  }
+
+  async function claimReward() {
+    if (!member) return
+    setClaimingReward(true); setClaimMsg('')
+    const r = await fetch('/api/pos/stamp/claim-reward', {
+      method: 'POST',
+      headers: staffHeaders(),
+      body: JSON.stringify({ membershipId: member.id }),
+    })
+    const d = await r.json()
+    if (r.ok) {
+      // Reset count to 0 locally so card shows as new
+      setStampProgress(prev => prev ? { ...prev, count: 0 } : null)
+      setClaimMsg(`✓ Reward confirmed: ${d.rewardText}`)
+      setStampStep('success')
+    } else {
+      setClaimMsg(d.error || 'Failed to confirm reward')
+    }
+    setClaimingReward(false)
   }
 
   async function lookupMember() {
@@ -361,7 +384,29 @@ export default function PosScreen() {
                 </div>
 
                 {/* Actions */}
-                {(stampEarnMode === 'manual' || !stampEarnMode) ? (
+                {stampProgress && Number(stampProgress.count) >= Number(stampProgress.goal) ? (
+                  <div className="space-y-2">
+                    <div className="rounded-2xl p-4 text-center"
+                      style={{ background: color + '10', border: `1.5px solid ${color}30` }}>
+                      <p className="text-sm font-semibold mb-0.5" style={{ color }}>🎉 Card Complete!</p>
+                      <p className="text-xs text-gray-500">Give the customer their reward, then confirm below</p>
+                      <p className="text-sm font-bold mt-1 text-gray-800">{stampProgress.reward_text}</p>
+                    </div>
+                    <button
+                      onClick={claimReward}
+                      disabled={claimingReward}
+                      className="w-full py-5 text-white font-bold text-lg rounded-2xl flex items-center justify-center gap-2.5 disabled:opacity-50 shadow-sm active:scale-[0.98] transition-transform"
+                      style={{ backgroundColor: color }}>
+                      {claimingReward
+                        ? <><Loader2 size={20} className="animate-spin" /> Confirming…</>
+                        : <><Gift size={22} /> Confirm Reward Given</>
+                      }
+                    </button>
+                    {claimMsg && (
+                      <p className="text-sm text-center font-medium text-emerald-600">{claimMsg}</p>
+                    )}
+                  </div>
+                ) : (stampEarnMode === 'manual' || !stampEarnMode) ? (
                   <button
                     onClick={addStamp}
                     disabled={stampAdding}
@@ -383,25 +428,43 @@ export default function PosScreen() {
             )}
 
             {/* ── Step: Success ── */}
-            {stampStep === 'success' && stampProgress && (
-              <div className="space-y-3">
-                {/* Success banner */}
-                <div className="bg-white rounded-2xl border border-gray-100 p-6 text-center">
-                  <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3"
-                    style={{ background: color + '18' }}>
-                    <CheckCircle size={32} style={{ color }} />
+            {stampStep === 'success' && stampProgress && (() => {
+              const cardComplete = Number(stampProgress.count) >= Number(stampProgress.goal)
+              const rewardJustConfirmed = claimMsg.startsWith('✓')
+              return (
+                <div className="space-y-3">
+                  {/* Banner */}
+                  <div className="bg-white rounded-2xl border border-gray-100 p-6 text-center">
+                    <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3"
+                      style={{ background: cardComplete ? color + '18' : color + '18' }}>
+                      {cardComplete ? <Gift size={32} style={{ color }} /> : <CheckCircle size={32} style={{ color }} />}
+                    </div>
+                    {cardComplete ? (
+                      <>
+                        <p className="text-xl font-bold text-gray-900 mb-1">🎉 Card Complete!</p>
+                        <p className="text-sm text-gray-400 mb-1">{member?.member?.name || phone}</p>
+                        <p className="text-sm font-semibold" style={{ color }}>{stampProgress.reward_text}</p>
+                      </>
+                    ) : rewardJustConfirmed ? (
+                      <>
+                        <p className="text-xl font-bold text-gray-900 mb-1">Reward Confirmed!</p>
+                        <p className="text-sm text-gray-400 mb-1">{member?.member?.name || phone}</p>
+                        <p className="text-sm font-medium text-emerald-600">{claimMsg}</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xl font-bold text-gray-900 mb-1">Stamp Added!</p>
+                        <p className="text-sm text-gray-400 mb-1">{member?.member?.name || phone}</p>
+                        <p className="text-sm font-medium" style={{ color }}>
+                          {stampProgress.count} / {stampProgress.goal} stamps
+                        </p>
+                        {stampMsg && stampMsg !== 'Stamp added!' && (
+                          <p className="mt-2 text-sm font-semibold" style={{ color }}>{stampMsg}</p>
+                        )}
+                      </>
+                    )}
                   </div>
-                  <p className="text-xl font-bold text-gray-900 mb-1">Stamp Added!</p>
-                  <p className="text-sm text-gray-400 mb-1">{member?.member?.name || phone}</p>
-                  <p className="text-sm font-medium" style={{ color }}>
-                    {stampProgress.count} / {stampProgress.goal} stamps
-                  </p>
-                  {stampMsg && stampMsg !== 'Stamp added!' && (
-                    <p className="mt-2 text-sm font-semibold" style={{ color }}>{stampMsg}</p>
-                  )}
-                </div>
 
-                {stampProgress && (
                   <div className="bg-white rounded-2xl border border-gray-100 p-4">
                     <StampCardVisual
                       count={stampProgress.count}
@@ -416,23 +479,38 @@ export default function PosScreen() {
                       compact
                     />
                   </div>
-                )}
 
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => { setStampStep('found'); setJustStamped(false); setStampMsg('') }}
-                    className="py-3.5 rounded-2xl border border-gray-200 text-sm font-medium text-gray-700 flex items-center justify-center gap-1.5">
-                    <Stamp size={16} /> Same customer
-                  </button>
-                  <button
-                    onClick={resetStamp}
-                    className="py-3.5 rounded-2xl text-white text-sm font-bold flex items-center justify-center gap-1.5"
-                    style={{ backgroundColor: color }}>
-                    Next customer
-                  </button>
+                  {cardComplete && !rewardJustConfirmed ? (
+                    <button
+                      onClick={claimReward}
+                      disabled={claimingReward}
+                      className="w-full py-5 text-white font-bold text-lg rounded-2xl flex items-center justify-center gap-2.5 disabled:opacity-50 shadow-sm active:scale-[0.98] transition-transform"
+                      style={{ backgroundColor: color }}>
+                      {claimingReward
+                        ? <><Loader2 size={20} className="animate-spin" /> Confirming…</>
+                        : <><Gift size={22} /> Confirm Reward Given</>
+                      }
+                    </button>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2">
+                      {!rewardJustConfirmed && (
+                        <button
+                          onClick={() => { setStampStep('found'); setJustStamped(false); setStampMsg('') }}
+                          className="py-3.5 rounded-2xl border border-gray-200 text-sm font-medium text-gray-700 flex items-center justify-center gap-1.5">
+                          <Stamp size={16} /> Same customer
+                        </button>
+                      )}
+                      <button
+                        onClick={resetStamp}
+                        className={'py-3.5 rounded-2xl text-white text-sm font-bold flex items-center justify-center gap-1.5' + (rewardJustConfirmed ? ' col-span-2' : '')}
+                        style={{ backgroundColor: color }}>
+                        Next customer
+                      </button>
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              )
+            })()}
 
             {/* Search by name (always available in stamp tab) */}
             <button

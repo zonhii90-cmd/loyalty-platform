@@ -23,6 +23,7 @@ const srcLabel: Record<string, string> = {
   manual: 'Adjustment', feedback: 'Feedback reward', purchase: 'Purchase',
   birthday: 'Birthday bonus', referral: 'Referral', qr_scan: 'QR Scan',
   stamp_redeem: 'Stamp reward', reward_redeem: 'Reward redeemed',
+  stamp_claim: 'Stamp reward claimed',
 }
 
 const tierGrad: Record<string, string> = {
@@ -50,6 +51,8 @@ function PortalContent() {
   const [liveStampAnimIdx, setLiveStampAnimIdx] = useState<number | null>(null)
   const [liveStampAnimKey, setLiveStampAnimKey] = useState(0)
   const [newStampToast, setNewStampToast] = useState(false)
+  const [showCelebration, setShowCelebration] = useState(false)
+  const [celebrationReward, setCelebrationReward] = useState('')
 
   useEffect(() => { memberDataRef.current = memberData }, [memberData])
 
@@ -74,7 +77,15 @@ function PortalContent() {
           const prev = Number(curr.stamp?.count ?? 0)
           const next = Number(d.stamp?.count ?? 0)
           if (next !== prev && d.stamp) {
-            if (next > prev) {
+            const prevGoal = Number(curr.stamp?.goal ?? 999)
+            const prevWasComplete = prev >= prevGoal
+            const rewardJustClaimed = prevWasComplete && next === 0
+
+            if (rewardJustClaimed) {
+              setCelebrationReward(curr.stamp?.reward_text || '')
+              setShowCelebration(true)
+              setTimeout(() => setShowCelebration(false), 3500)
+            } else if (next > prev) {
               setLiveStampAnimIdx(next - 1)
               setLiveStampAnimKey(k => k + 1)
               setTimeout(() => setLiveStampAnimIdx(null), 900)
@@ -395,6 +406,20 @@ function PortalContent() {
         {/* Overview */}
         {tab === 'overview' && (
           <>
+            {/* Celebration overlay — shown after cashier confirms reward */}
+            {showCelebration && (
+              <div className="fixed inset-0 z-50 flex flex-col items-center justify-center"
+                style={{ backgroundColor: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}>
+                <div className="bg-white rounded-3xl p-8 mx-6 text-center shadow-2xl">
+                  <div className="text-6xl mb-4">🎉</div>
+                  <p className="text-2xl font-bold text-gray-900 mb-2">Reward Claimed!</p>
+                  <p className="text-base text-gray-600 mb-1">Enjoy your</p>
+                  <p className="text-xl font-bold mb-4" style={{ color }}>{celebrationReward}</p>
+                  <p className="text-sm text-gray-400">New stamp card starting…</p>
+                </div>
+              </div>
+            )}
+
             {/* New stamp toast */}
             {newStampToast && (
               <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-full text-white text-sm font-semibold shadow-lg flex items-center gap-2"
@@ -404,17 +429,29 @@ function PortalContent() {
             )}
 
             {stamp && (
-              <StampCardVisual
-                count={stamp.count}
-                goal={stamp.goal}
-                reward_text={stamp.reward_text}
-                accent_color={stamp.accent_color || color}
-                stamp_icon={stamp.stamp_icon}
-                card_bg={stamp.card_bg as any}
-                completed_count={stamp.completed_count}
-                newStampIndex={liveStampAnimIdx}
-                animKey={liveStampAnimKey}
-              />
+              <>
+                {/* "Show to cashier" banner when card is complete */}
+                {Number(stamp.count) >= Number(stamp.goal) && (
+                  <div className="rounded-2xl p-4 text-center animate-pulse"
+                    style={{ background: (stamp.accent_color || color) + '15', border: `2px solid ${stamp.accent_color || color}` }}>
+                    <p className="text-2xl mb-1">🎉</p>
+                    <p className="text-base font-bold" style={{ color: stamp.accent_color || color }}>Card Complete!</p>
+                    <p className="text-sm text-gray-600 mt-1">Show this screen to your cashier</p>
+                    <p className="text-xs text-gray-500 mt-0.5">to claim your <span className="font-semibold">{stamp.reward_text}</span></p>
+                  </div>
+                )}
+                <StampCardVisual
+                  count={stamp.count}
+                  goal={stamp.goal}
+                  reward_text={stamp.reward_text}
+                  accent_color={stamp.accent_color || color}
+                  stamp_icon={stamp.stamp_icon}
+                  card_bg={stamp.card_bg as any}
+                  completed_count={stamp.completed_count}
+                  newStampIndex={liveStampAnimIdx}
+                  animKey={liveStampAnimKey}
+                />
+              </>
             )}
             <div className="bg-white rounded-2xl p-4">
               <p className="text-xs font-medium text-gray-500 mb-3">Points History</p>
@@ -427,9 +464,16 @@ function PortalContent() {
                     {entry.note && <p className="text-xs text-gray-400 truncate">{entry.note}</p>}
                     <p className="text-xs text-gray-300">{new Date(entry.created_at).toLocaleString()}</p>
                   </div>
-                  <p className={'text-base font-bold shrink-0 ' + (entry.amount > 0 ? 'text-emerald-600' : 'text-red-500')}>
-                    {entry.amount > 0 ? '+' : ''}{entry.amount}
-                  </p>
+                  {entry.source === 'stamp_claim' ? (
+                    <span className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0"
+                      style={{ backgroundColor: (stamp?.accent_color || color) + '20', color: stamp?.accent_color || color }}>
+                      ✓ Claimed
+                    </span>
+                  ) : (
+                    <p className={'text-base font-bold shrink-0 ' + (entry.amount > 0 ? 'text-emerald-600' : 'text-red-500')}>
+                      {entry.amount > 0 ? '+' : ''}{entry.amount}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>

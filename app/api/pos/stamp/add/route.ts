@@ -54,17 +54,9 @@ export async function POST(req: NextRequest) {
     stampRow = created[0]
   }
 
-  // If card is already complete, reset it and start fresh
+  // Card is already complete — cashier must confirm reward before adding new stamps
   if (stampRow.count >= card.goal) {
-    await db`UPDATE member_stamps SET count = 1, updated_at = now() WHERE id = ${stampRow.id}`
-    return NextResponse.json({
-      success: true, count: 1, goal: card.goal, completed: false,
-      rewardText: card.reward_text,
-      accent_color: card.accent_color || '#F59E0B',
-      stamp_icon: card.stamp_icon || '★',
-      card_bg: card.card_bg || 'white',
-      message: `New card started! (1/${card.goal})`,
-    })
+    return NextResponse.json({ error: 'Card complete — confirm the reward first' }, { status: 400 })
   }
 
   const newCount  = stampRow.count + 1
