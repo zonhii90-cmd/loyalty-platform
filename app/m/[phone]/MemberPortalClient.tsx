@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import StampCardVisual from '@/components/StampCardVisual'
 
@@ -60,6 +60,44 @@ export default function MemberPortalClient() {
   const [profileBday, setProfileBday] = useState('')
   const [profileSaving, setProfileSaving] = useState(false)
   const [profileMsg, setProfileMsg]       = useState('')
+  const [pollTick, setPollTick]           = useState(0)
+  const dataRef = useRef<PortalData | null>(null)
+  useEffect(() => { dataRef.current = data }, [data])
+
+  // Live polling — POST to bypass iOS WebKit GET cache
+  useEffect(() => {
+    if (!data?.membership.id) return
+    const id = data.membership.id
+    let timer: ReturnType<typeof setTimeout>
+    let active = true
+
+    async function poll() {
+      if (!active) return
+      try {
+        const ts = Date.now()
+        const [sdRes, ldRes] = await Promise.all([
+          fetch(`/api/members/${id}/stamps`, { method: 'POST', cache: 'no-store' }),
+          fetch(`/api/members/${id}/ledger?_=${ts}`, { cache: 'no-store' }),
+        ])
+        if (sdRes.ok) {
+          const sd = await sdRes.json()
+          const ld = ldRes.ok ? await ldRes.json() : null
+          setPollTick(t => t + 1)
+          setData(prev => prev ? {
+            ...prev,
+            stamp:  sd.stamp   ?? prev.stamp,
+            ledger: ld?.ledger ?? prev.ledger,
+          } : null)
+        }
+      } catch {}
+      if (active) timer = setTimeout(poll, document.visibilityState === 'visible' ? 2000 : 15000)
+    }
+
+    poll()
+    const onVisible = () => { if (document.visibilityState === 'visible') { clearTimeout(timer); poll() } }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => { active = false; clearTimeout(timer); document.removeEventListener('visibilitychange', onVisible) }
+  }, [data?.membership.id])
 
   async function load() {
     if (!phone || !companyId) { setErr('Invalid link'); setLoading(false); return }
@@ -162,6 +200,12 @@ export default function MemberPortalClient() {
           <span className="inline-block mt-2 px-3 py-1 bg-white/20 rounded-full text-xs font-semibold capitalize">
             {membership.tier} Member
           </span>
+          <div className="flex justify-center mt-3">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20 text-white text-xs font-semibold">
+              <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse inline-block" />
+              Live #{pollTick}
+            </span>
+          </div>
         </div>
       </div>
 
