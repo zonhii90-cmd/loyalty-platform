@@ -52,6 +52,7 @@ function PortalContent() {
   const [liveStampAnimIdx, setLiveStampAnimIdx] = useState<number | null>(null)
   const [liveStampAnimKey, setLiveStampAnimKey] = useState(0)
   const [newStampToast, setNewStampToast] = useState(false)
+  const [newPointsToast, setNewPointsToast] = useState<number | null>(null)
   const [showCelebration, setShowCelebration] = useState(false)
   const [celebrationReward, setCelebrationReward] = useState('')
   const [pollTick, setPollTick] = useState(0)
@@ -86,6 +87,14 @@ function PortalContent() {
 
         const sd = await sdRes.json()
         const ld = ldRes.ok ? await ldRes.json() : null
+
+        const prevPts = Number(curr.membership?.points ?? 0)
+        const nextPts = Number(sd.points ?? 0)
+        if (nextPts > prevPts && sd.points !== null) {
+          const gained = nextPts - prevPts
+          setNewPointsToast(gained)
+          setTimeout(() => setNewPointsToast(null), 3500)
+        }
 
         if (sd.stamp) {
           const prev = Number(curr.stamp?.count ?? 0)
@@ -440,6 +449,14 @@ function PortalContent() {
                   <p className="text-xl font-bold mb-4" style={{ color }}>{celebrationReward}</p>
                   <p className="text-sm text-gray-400">New stamp card starting…</p>
                 </div>
+              </div>
+            )}
+
+            {/* Points added toast */}
+            {newPointsToast !== null && (
+              <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-full text-white text-sm font-semibold shadow-lg flex items-center gap-2 animate-bounce"
+                style={{ backgroundColor: '#10b981' }}>
+                <span>💰</span> +{newPointsToast} pts added!
               </div>
             )}
 

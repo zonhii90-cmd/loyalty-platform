@@ -64,6 +64,7 @@ export default function MemberPortalClient() {
   const [liveStampAnimIdx, setLiveStampAnimIdx] = useState<number | null>(null)
   const [liveStampAnimKey, setLiveStampAnimKey] = useState(0)
   const [newStampToast, setNewStampToast]       = useState(false)
+  const [newPointsToast, setNewPointsToast]     = useState<number | null>(null)
   const dataRef = useRef<PortalData | null>(null)
   useEffect(() => { dataRef.current = data }, [data])
 
@@ -85,6 +86,14 @@ export default function MemberPortalClient() {
         if (sdRes.ok) {
           const sd = await sdRes.json()
           const ld = ldRes.ok ? await ldRes.json() : null
+          const prevPts = Number(dataRef.current?.membership?.points ?? 0)
+          const nextPts = Number(sd.points ?? 0)
+          if (nextPts > prevPts && sd.points !== null) {
+            const gained = nextPts - prevPts
+            setNewPointsToast(gained)
+            setTimeout(() => setNewPointsToast(null), 3500)
+          }
+
           const prev = Number(dataRef.current?.stamp?.count ?? 0)
           const next = Number(sd.stamp?.count ?? 0)
           if (next > prev) {
@@ -214,6 +223,12 @@ export default function MemberPortalClient() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-8">
+      {newPointsToast !== null && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-full text-white text-sm font-semibold shadow-lg flex items-center gap-2 animate-bounce"
+          style={{ backgroundColor: '#10b981' }}>
+          <span>💰</span> +{newPointsToast} pts added!
+        </div>
+      )}
       {newStampToast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-full text-white text-sm font-semibold shadow-lg flex items-center gap-2 animate-bounce"
           style={{ backgroundColor: stamp?.accent_color || '#7c3aed' }}>
