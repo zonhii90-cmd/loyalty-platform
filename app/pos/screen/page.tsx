@@ -53,6 +53,9 @@ export default function PosScreen() {
   const [voucherResult, setVoucherResult] = useState<{ success: boolean; message: string } | null>(null)
   const [voucherLoading, setVoucherLoading] = useState(false)
 
+  // Confirm dialog
+  const [confirmAction, setConfirmAction] = useState<{ label: string; sublabel?: string; onConfirm: () => void } | null>(null)
+
   // Search state
   const [searchQ, setSearchQ] = useState('')
   const [searchResults, setSearchResults] = useState<any[]>([])
@@ -267,6 +270,36 @@ export default function PosScreen() {
   return (
     <div className="min-h-screen flex flex-col" style={{ background: '#F7F7F5' }}>
 
+      {/* ── Confirm dialog overlay ─────────────────────────────── */}
+      {confirmAction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-6"
+          style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
+          onClick={() => setConfirmAction(null)}>
+          <div className="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl"
+            onClick={e => e.stopPropagation()}>
+            <p className="text-base font-bold text-gray-900 text-center mb-1">{confirmAction.label}</p>
+            {confirmAction.sublabel && (
+              <p className="text-sm text-gray-500 text-center mb-4">{confirmAction.sublabel}</p>
+            )}
+            {!confirmAction.sublabel && <div className="mb-4" />}
+            <p className="text-xs text-gray-400 text-center mb-5">Are you sure? This cannot be undone.</p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setConfirmAction(null)}
+                className="py-3 rounded-2xl border border-gray-200 text-sm font-semibold text-gray-600 active:scale-95 transition-transform">
+                Cancel
+              </button>
+              <button
+                onClick={() => { confirmAction.onConfirm(); setConfirmAction(null) }}
+                className="py-3 rounded-2xl text-white text-sm font-bold active:scale-95 transition-transform"
+                style={{ backgroundColor: color }}>
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Header ─────────────────────────────────────────────── */}
       <header className="bg-white border-b border-gray-100 px-4 pt-safe" style={{ paddingTop: 'max(env(safe-area-inset-top), 12px)' }}>
         <div className="flex items-center justify-between pb-3">
@@ -444,7 +477,7 @@ export default function PosScreen() {
                       <p className="text-sm font-bold mt-1 text-gray-800">{stampProgress.reward_text}</p>
                     </div>
                     <button
-                      onClick={claimReward}
+                      onClick={() => setConfirmAction({ label: 'Confirm Reward Given', sublabel: stampProgress?.reward_text, onConfirm: claimReward })}
                       disabled={claimingReward}
                       className="w-full py-5 text-white font-bold text-lg rounded-2xl flex items-center justify-center gap-2.5 disabled:opacity-50 shadow-sm active:scale-[0.98] transition-transform"
                       style={{ backgroundColor: color }}>
@@ -533,7 +566,7 @@ export default function PosScreen() {
 
                   {cardComplete && !rewardJustConfirmed ? (
                     <button
-                      onClick={claimReward}
+                      onClick={() => setConfirmAction({ label: 'Confirm Reward Given', sublabel: stampProgress?.reward_text, onConfirm: claimReward })}
                       disabled={claimingReward}
                       className="w-full py-5 text-white font-bold text-lg rounded-2xl flex items-center justify-center gap-2.5 disabled:opacity-50 shadow-sm active:scale-[0.98] transition-transform"
                       style={{ backgroundColor: color }}>
@@ -721,7 +754,9 @@ export default function PosScreen() {
                 )}
                 <p className="text-xs text-gray-300 mt-3 text-center">Ask the customer to show their code</p>
               </div>
-              <button onClick={redeemVoucher} disabled={voucherLoading || !voucherCode.trim()}
+              <button
+                onClick={() => setConfirmAction({ label: 'Redeem Voucher', sublabel: `Code: ${voucherCode.trim().toUpperCase()}`, onConfirm: redeemVoucher })}
+                disabled={voucherLoading || !voucherCode.trim()}
                 className="w-full py-4 text-white font-semibold text-base flex items-center justify-center gap-2 disabled:opacity-40 transition-opacity"
                 style={{ backgroundColor: color }}>
                 {voucherLoading ? <><Loader2 size={18} className="animate-spin" /> Checking…</> : <><Ticket size={18} /> Redeem Voucher</>}
