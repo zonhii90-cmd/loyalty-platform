@@ -3,16 +3,19 @@ import { sql } from '@/lib/db'
 
 async function queryStamps(membershipId: string) {
   const db = sql()
-  const rows = await db`
-    SELECT ms.count, ms.completed_count,
-           sc.goal, sc.reward_text, sc.earn_mode,
-           sc.accent_color, sc.stamp_icon, sc.card_bg
-    FROM member_stamps ms
-    JOIN stamp_cards sc ON sc.id = ms.stamp_card_id
-    WHERE ms.membership_id = ${membershipId} AND sc.active = true
-    LIMIT 1
-  `
-  return NextResponse.json({ stamp: rows[0] || null }, {
+  const [rows, ptRows] = await Promise.all([
+    db`
+      SELECT ms.count, ms.completed_count,
+             sc.goal, sc.reward_text, sc.earn_mode,
+             sc.accent_color, sc.stamp_icon, sc.card_bg
+      FROM member_stamps ms
+      JOIN stamp_cards sc ON sc.id = ms.stamp_card_id
+      WHERE ms.membership_id = ${membershipId} AND sc.active = true
+      LIMIT 1
+    `,
+    db`SELECT points FROM memberships WHERE id = ${membershipId} LIMIT 1`,
+  ])
+  return NextResponse.json({ stamp: rows[0] || null, points: ptRows[0]?.points ?? null }, {
     headers: {
       'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
       'CDN-Cache-Control': 'no-store',

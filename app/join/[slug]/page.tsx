@@ -112,26 +112,13 @@ function PortalContent() {
           }
         }
 
-        // Also refresh points balance when stamp count changed
-        let freshPoints: number | null = null
-        if (sd.stamp && Number(sd.stamp.count) !== Number(curr.stamp?.count ?? -1)) {
-          try {
-            const lu = await fetch('/api/members/lookup', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ phone: ph, slug }),
-            }).then(r => r.json())
-            freshPoints = lu.membership?.points ?? null
-          } catch {}
-        }
-
         setPollTick(t => t + 1)
         setMemberData(prev => {
           if (!prev) return null
           return {
             ...prev,
-            membership: freshPoints !== null
-              ? { ...prev.membership, points: freshPoints! }
+            membership: sd.points !== null && sd.points !== undefined
+              ? { ...prev.membership, points: sd.points }
               : prev.membership,
             stamp:  sd.stamp  ?? prev.stamp,
             ledger: ld?.ledger ?? prev.ledger,

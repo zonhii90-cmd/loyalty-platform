@@ -87,7 +87,6 @@ export default function MemberPortalClient() {
           const ld = ldRes.ok ? await ldRes.json() : null
           const prev = Number(dataRef.current?.stamp?.count ?? 0)
           const next = Number(sd.stamp?.count ?? 0)
-          let freshPoints: number | null = null
           if (next > prev) {
             const added = next - prev
             for (let i = 0; i < added; i++) {
@@ -99,23 +98,13 @@ export default function MemberPortalClient() {
             setTimeout(() => setLiveStampAnimIdx(null), (added - 1) * 350 + 800)
             setNewStampToast(true)
             setTimeout(() => setNewStampToast(false), 3500)
-            // Fetch fresh points — stamps earning adds points too
-            try {
-              const ph = dataRef.current?.member.phone
-              if (ph) {
-                const lu = await fetch('/api/members/lookup', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ phone: ph, company_id: companyId }),
-                }).then(r => r.json())
-                if (lu.membership?.points !== undefined) freshPoints = lu.membership.points
-              }
-            } catch {}
           }
           setPollTick(t => t + 1)
           setData(p => p ? {
             ...p,
-            membership: freshPoints !== null ? { ...p.membership, points: freshPoints } : p.membership,
+            membership: sd.points !== null && sd.points !== undefined
+              ? { ...p.membership, points: sd.points }
+              : p.membership,
             stamp:  sd.stamp   ?? p.stamp,
             ledger: ld?.ledger ?? p.ledger,
           } : null)
