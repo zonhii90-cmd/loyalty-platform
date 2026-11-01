@@ -118,7 +118,12 @@ function PortalContent() {
           return {
             ...prev,
             membership: sd.points !== null && sd.points !== undefined
-              ? { ...prev.membership, points: sd.points }
+              ? {
+                  ...prev.membership,
+                  points: sd.points,
+                  ...(sd.lifetime_points !== null && sd.lifetime_points !== undefined ? { lifetime_points: sd.lifetime_points } : {}),
+                  ...(sd.tier ? { tier: sd.tier } : {}),
+                }
               : prev.membership,
             stamp:  sd.stamp  ?? prev.stamp,
             ledger: ld?.ledger ?? prev.ledger,

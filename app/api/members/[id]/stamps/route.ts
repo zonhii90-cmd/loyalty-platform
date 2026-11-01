@@ -13,9 +13,15 @@ async function queryStamps(membershipId: string) {
       WHERE ms.membership_id = ${membershipId} AND sc.active = true
       LIMIT 1
     `,
-    db`SELECT points FROM memberships WHERE id = ${membershipId} LIMIT 1`,
+    db`SELECT points, lifetime_points, tier FROM memberships WHERE id = ${membershipId} LIMIT 1`,
   ])
-  return NextResponse.json({ stamp: rows[0] || null, points: ptRows[0]?.points ?? null }, {
+  const ms = ptRows[0] ?? null
+  return NextResponse.json({
+    stamp: rows[0] || null,
+    points: ms?.points ?? null,
+    lifetime_points: ms?.lifetime_points ?? null,
+    tier: ms?.tier ?? null,
+  }, {
     headers: {
       'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
       'CDN-Cache-Control': 'no-store',

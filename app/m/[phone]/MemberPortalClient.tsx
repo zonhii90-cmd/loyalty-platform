@@ -103,7 +103,12 @@ export default function MemberPortalClient() {
           setData(p => p ? {
             ...p,
             membership: sd.points !== null && sd.points !== undefined
-              ? { ...p.membership, points: sd.points }
+              ? {
+                  ...p.membership,
+                  points: sd.points,
+                  ...(sd.lifetime_points !== null && sd.lifetime_points !== undefined ? { lifetime_points: sd.lifetime_points } : {}),
+                  ...(sd.tier ? { tier: sd.tier } : {}),
+                }
               : p.membership,
             stamp:  sd.stamp   ?? p.stamp,
             ledger: ld?.ledger ?? p.ledger,
