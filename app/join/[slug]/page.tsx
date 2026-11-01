@@ -397,6 +397,12 @@ function PortalContent() {
             <span className="inline-block mt-2 px-3 py-1 bg-white/20 rounded-full text-xs font-semibold capitalize">
               {membership.tier} Member
             </span>
+            <div className="flex justify-center mt-3">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20 text-white text-xs font-semibold">
+                <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse inline-block" />
+                Live #{pollTick}
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -407,10 +413,6 @@ function PortalContent() {
           <p className="text-xs text-gray-400 mb-1">Points Balance</p>
           <p className="text-5xl font-bold" style={{ color }}>{membership.points}</p>
           <p className="text-xs text-gray-300 mt-2">Since {new Date(membership.joined_at).toLocaleDateString()}</p>
-          <div className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-full bg-green-50 border border-green-200">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse inline-block" />
-            <span className="text-xs font-medium text-green-700">Live #{pollTick}</span>
-          </div>
           <button onClick={() => { setMemberData(null); setPhone('') }}
             className="mt-3 text-xs text-gray-300 hover:text-gray-400">← Switch account</button>
         </div>
