@@ -11,3 +11,27 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
 }
+
+/* Stamp card animations — kept in globals so iOS Safari doesn't re-parse on React re-renders */
+@keyframes stamp-pop {
+  0%   { transform: scale(0.3) rotate(-15deg); opacity: 0; }
+  60%  { transform: scale(1.25) rotate(5deg); }
+  80%  { transform: scale(0.95) rotate(-2deg); }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+@keyframes stamp-glow {
+  0%   { box-shadow: 0 0 0 0px  var(--stamp-glow-color, #F59E0B); }
+  70%  { box-shadow: 0 0 0 12px transparent; }
+  100% { box-shadow: 0 0 0 0px  transparent; }
+}
+@keyframes card-pulse {
+  0%,100% { box-shadow: 0 0 0 2px var(--card-pulse-a, #F59E0B30), 0 4px 24px var(--card-pulse-b, #F59E0B18); }
+  50%     { box-shadow: 0 0 0 3px var(--card-pulse-c, #F59E0B60), 0 8px 32px var(--card-pulse-d, #F59E0B38); }
+}
+.stamp-new {
+  animation: stamp-pop .5s cubic-bezier(.175,.885,.32,1.275),
+             stamp-glow .7s ease-out .05s;
+}
+.card-complete-pulse {
+  animation: card-pulse 2.5s ease-in-out infinite;
+}

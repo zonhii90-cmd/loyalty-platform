@@ -99,9 +99,14 @@ function PortalContent() {
             setShowCelebration(true)
             setTimeout(() => setShowCelebration(false), 3500)
           } else if (next > prev) {
-            setLiveStampAnimIdx(next - 1)
-            setLiveStampAnimKey(k => k + 1)
-            setTimeout(() => setLiveStampAnimIdx(null), 900)
+            const added = next - prev
+            for (let i = 0; i < added; i++) {
+              setTimeout(() => {
+                setLiveStampAnimIdx(prev + i)
+                setLiveStampAnimKey(k => k + 1)
+              }, i * 350)
+            }
+            setTimeout(() => setLiveStampAnimIdx(null), (added - 1) * 350 + 800)
             setNewStampToast(true)
             setTimeout(() => setNewStampToast(false), 3500)
           }

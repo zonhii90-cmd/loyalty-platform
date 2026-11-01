@@ -48,30 +48,16 @@ export default function StampCardVisual({
   const borderColor = isComplete ? `${accent_color}60` : card_bg === 'dark' ? 'rgba(255,255,255,0.08)' : '#F0F0EE'
 
   return (
-    <>
-      <style>{`
-        @keyframes stamp-pop {
-          0%   { transform: scale(0.2) rotate(-15deg); opacity: 0; }
-          60%  { transform: scale(1.25) rotate(5deg); }
-          80%  { transform: scale(0.95) rotate(-2deg); }
-          100% { transform: scale(1) rotate(0deg); opacity: 1; }
-        }
-        @keyframes stamp-glow {
-          0%   { box-shadow: 0 0 0 0px   ${accent_color}AA; }
-          70%  { box-shadow: 0 0 0 12px  ${accent_color}00; }
-          100% { box-shadow: 0 0 0 0px   ${accent_color}00; }
-        }
-        @keyframes card-pulse {
-          0%,100% { box-shadow: 0 0 0 2px ${accent_color}30, 0 4px 24px ${accent_color}18; }
-          50%     { box-shadow: 0 0 0 3px ${accent_color}60, 0 8px 32px ${accent_color}38; }
-        }
-        .stamp-new          { animation: stamp-pop .5s cubic-bezier(.175,.885,.32,1.275), stamp-glow .7s ease-out .05s; }
-        .card-complete-pulse { animation: card-pulse 2.5s ease-in-out infinite; }
-      `}</style>
-
-      <div
+    <div
         className={`${bg} rounded-3xl ${pad} ${isComplete ? 'card-complete-pulse' : ''}`}
-        style={{ border: `1.5px solid ${borderColor}` }}
+        style={{
+          border: `1.5px solid ${borderColor}`,
+          '--stamp-glow-color': `${accent_color}AA`,
+          '--card-pulse-a': `${accent_color}30`,
+          '--card-pulse-b': `${accent_color}18`,
+          '--card-pulse-c': `${accent_color}60`,
+          '--card-pulse-d': `${accent_color}38`,
+        } as React.CSSProperties}
       >
         {isComplete ? (
           <div className="text-center mb-4">
@@ -157,7 +143,6 @@ export default function StampCardVisual({
             </div>
           </div>
         )}
-      </div>
-    </>
+    </div>
   )
 }

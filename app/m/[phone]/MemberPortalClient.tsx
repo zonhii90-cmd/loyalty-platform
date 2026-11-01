@@ -61,6 +61,9 @@ export default function MemberPortalClient() {
   const [profileSaving, setProfileSaving] = useState(false)
   const [profileMsg, setProfileMsg]       = useState('')
   const [pollTick, setPollTick]           = useState(0)
+  const [liveStampAnimIdx, setLiveStampAnimIdx] = useState<number | null>(null)
+  const [liveStampAnimKey, setLiveStampAnimKey] = useState(0)
+  const [newStampToast, setNewStampToast]       = useState(false)
   const dataRef = useRef<PortalData | null>(null)
   useEffect(() => { dataRef.current = data }, [data])
 
@@ -82,11 +85,39 @@ export default function MemberPortalClient() {
         if (sdRes.ok) {
           const sd = await sdRes.json()
           const ld = ldRes.ok ? await ldRes.json() : null
+          const prev = Number(dataRef.current?.stamp?.count ?? 0)
+          const next = Number(sd.stamp?.count ?? 0)
+          let freshPoints: number | null = null
+          if (next > prev) {
+            const added = next - prev
+            for (let i = 0; i < added; i++) {
+              setTimeout(() => {
+                setLiveStampAnimIdx(prev + i)
+                setLiveStampAnimKey(k => k + 1)
+              }, i * 350)
+            }
+            setTimeout(() => setLiveStampAnimIdx(null), (added - 1) * 350 + 800)
+            setNewStampToast(true)
+            setTimeout(() => setNewStampToast(false), 3500)
+            // Fetch fresh points — stamps earning adds points too
+            try {
+              const ph = dataRef.current?.member.phone
+              if (ph) {
+                const lu = await fetch('/api/members/lookup', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ phone: ph, company_id: companyId }),
+                }).then(r => r.json())
+                if (lu.membership?.points !== undefined) freshPoints = lu.membership.points
+              }
+            } catch {}
+          }
           setPollTick(t => t + 1)
-          setData(prev => prev ? {
-            ...prev,
-            stamp:  sd.stamp   ?? prev.stamp,
-            ledger: ld?.ledger ?? prev.ledger,
+          setData(p => p ? {
+            ...p,
+            membership: freshPoints !== null ? { ...p.membership, points: freshPoints } : p.membership,
+            stamp:  sd.stamp   ?? p.stamp,
+            ledger: ld?.ledger ?? p.ledger,
           } : null)
         }
       } catch {}
@@ -189,6 +220,12 @@ export default function MemberPortalClient() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-8">
+      {newStampToast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-full text-white text-sm font-semibold shadow-lg flex items-center gap-2 animate-bounce"
+          style={{ backgroundColor: stamp?.accent_color || '#7c3aed' }}>
+          <span>⭐</span> New stamp added!
+        </div>
+      )}
       {/* Header card */}
       <div className={`bg-gradient-to-br ${grad} text-white px-4 pt-12 pb-10`}>
         <div className="max-w-sm mx-auto text-center">
@@ -277,6 +314,8 @@ export default function MemberPortalClient() {
                   stamp_icon={stamp.stamp_icon}
                   card_bg={stamp.card_bg as any}
                   completed_count={stamp.completed_count}
+                  newStampIndex={liveStampAnimIdx}
+                  animKey={liveStampAnimKey}
                 />
               </div>
             )}
