@@ -36,6 +36,9 @@ export default function PosScreen() {
   const [justStamped, setJustStamped] = useState(false)
   const [claimingReward, setClaimingReward] = useState(false)
   const [claimMsg, setClaimMsg] = useState('')
+  const [addPointsAmt, setAddPointsAmt] = useState('')
+  const [addingPoints, setAddingPoints] = useState(false)
+  const [addPointsMsg, setAddPointsMsg] = useState('')
 
   // QR state
   const [earnType, setEarnType] = useState<'fixed' | 'purchase'>('fixed')
@@ -102,7 +105,27 @@ export default function PosScreen() {
     setPhone(''); setNewMemberName(''); setMember(null); setStampMsg('')
     setStampProgress(null); setStampStep('input'); setJustStamped(false)
     setClaimMsg(''); setClaimingReward(false)
+    setAddPointsAmt(''); setAddPointsMsg('')
     setTimeout(() => phoneRef.current?.focus(), 100)
+  }
+
+  async function addPoints() {
+    if (!member || !addPointsAmt) return
+    setAddingPoints(true); setAddPointsMsg('')
+    const r = await fetch('/api/pos/points/add', {
+      method: 'POST',
+      headers: staffHeaders(),
+      body: JSON.stringify({ membershipId: member.id, points: Number(addPointsAmt) }),
+    })
+    const d = await r.json()
+    if (r.ok) {
+      setMember((prev: any) => prev ? { ...prev, points: d.points, tier: d.tier } : null)
+      setAddPointsMsg(`+${addPointsAmt} pts added! Balance: ${d.points}`)
+      setAddPointsAmt('')
+    } else {
+      setAddPointsMsg(d.error || 'Failed to add points')
+    }
+    setAddingPoints(false)
   }
 
   async function claimReward() {
@@ -380,6 +403,34 @@ export default function PosScreen() {
                       animKey={stampAnimKey}
                       compact
                     />
+                  )}
+                </div>
+
+                {/* Add Points directly */}
+                <div className="bg-white rounded-2xl border border-gray-100 p-4">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Add Points</p>
+                  <div className="flex gap-2">
+                    <input
+                      value={addPointsAmt}
+                      onChange={e => { setAddPointsAmt(e.target.value.replace(/\D/g, '')); setAddPointsMsg('') }}
+                      onKeyDown={e => e.key === 'Enter' && addPoints()}
+                      placeholder="e.g. 50"
+                      type="number" inputMode="numeric"
+                      className="flex-1 px-3 py-2.5 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 transition-all"
+                      style={{ '--tw-ring-color': color + '40' } as React.CSSProperties}
+                    />
+                    <button
+                      onClick={addPoints}
+                      disabled={addingPoints || !addPointsAmt || Number(addPointsAmt) <= 0}
+                      className="px-4 py-2.5 rounded-xl text-white font-semibold text-sm flex items-center gap-1.5 disabled:opacity-40 transition-opacity"
+                      style={{ backgroundColor: color }}>
+                      {addingPoints ? <Loader2 size={16} className="animate-spin" /> : '+ Add'}
+                    </button>
+                  </div>
+                  {addPointsMsg && (
+                    <p className={'text-xs mt-2 font-medium ' + (addPointsMsg.includes('added') ? 'text-emerald-600' : 'text-red-500')}>
+                      {addPointsMsg}
+                    </p>
                   )}
                 </div>
 
